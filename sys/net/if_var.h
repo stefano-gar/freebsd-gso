@@ -202,6 +202,7 @@ struct ifnet {
 	struct	carp_if *if_carp;	/* carp interface structure */
 	struct	label *if_label;	/* interface MAC label */
 	struct	netmap_adapter *if_netmap; /* netmap(4) softc */
+	void	*if_gso;	/* GSO structure */
 
 	/* Various procedures of the layer2 encapsulation and drivers. */
 	int	(*if_output)		/* output routine (enqueue) */

@@ -49,6 +49,8 @@
 #include <sys/sysctl.h>
 #include <sys/uuid.h>
 
+#include <net/gso.h>
+
 #include <net/if.h>
 #include <net/if_var.h>
 #include <net/if_arp.h>
@@ -367,6 +369,23 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 			return (0);
 	}
 
+#ifdef GSO
+	/*
+	 * TODO-ste:
+	 *	- gso_dispatch now can handle no-GSO packets
+	 *	- avoid if
+	 *
+	 */
+	if (m->m_pkthdr.csum_flags & CSUM_GSO_MASK) {/* do GSO */
+		struct ether_vlan_header *eh;
+		eh = mtod(m, struct ether_vlan_header *);
+		if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
+			return gso_dispatch(ifp, m, ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN);
+		} else {
+			return gso_dispatch(ifp, m, ETHER_HDR_LEN);
+		}
+	}
+#endif
 	/*
 	 * Queue message on interface, update output statistics if
 	 * successful, and start output if interface not yet active.
@@ -845,6 +864,10 @@ ether_ifattach(struct ifnet *ifp, const u_int8_t *lla)
 	bpfattach(ifp, DLT_EN10MB, ETHER_HDR_LEN);
 	if (ng_ether_attach_p != NULL)
 		(*ng_ether_attach_p)(ifp);
+#ifdef GSO
+	/* enable GSO in ethernet device */
+	gso_ifattach(ifp);
+#endif
 
 	/* Announce Ethernet MAC address if non-zero. */
 	for (i = 0; i < ifp->if_addrlen; i++)
@@ -873,6 +896,9 @@ ether_ifdetach(struct ifnet *ifp)
 		(*ng_ether_detach_p)(ifp);
 	}
 
+#ifdef GSO
+	gso_ifdetach(ifp);
+#endif
 	bpfdetach(ifp);
 	if_detach(ifp);
 }
