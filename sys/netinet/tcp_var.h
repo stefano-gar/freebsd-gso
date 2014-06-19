@@ -37,7 +37,6 @@
 
 #ifdef _KERNEL
 #include <net/vnet.h>
-
 /*
  * Kernel variables for tcp.
  */
@@ -210,7 +209,7 @@ struct tcpcb {
 
 	u_int	t_tsomax;		/* tso burst length limit */
 
-	uint32_t t_ispare[8];		/* 5 UTO, 3 TBD */
+	uint32_t t_ispare[8];		/* 5 UTO, 1 GSO, 2 TBD */
 	void	*t_pspare2[4];		/* 1 TCP_SIGNATURE, 3 TBD */
 	uint64_t _pad[6];		/* 6 TBD (1-2 CC/RTT?) */
 };
@@ -247,6 +246,7 @@ struct tcpcb {
 #define	TF_ECN_SND_ECE	0x10000000	/* ECN ECE in queue */
 #define	TF_CONGRECOVERY	0x20000000	/* congestion recovery mode */
 #define	TF_WASCRECOVERY	0x40000000	/* was in congestion recovery */
+#define	TF_GSO		0x80000000	/* GSO enable on this connection */
 
 #define	IN_FASTRECOVERY(t_flags)	(t_flags & TF_FASTRECOVERY)
 #define	ENTER_FASTRECOVERY(t_flags)	t_flags |= TF_FASTRECOVERY
@@ -333,6 +333,9 @@ struct hc_metrics_lite {	/* must stay in sync with hc_metrics */
 struct tcp_ifcap {
 	int	ifcap;
 	u_int	tsomax;
+#ifdef GSO
+	u_int	gsomax;
+#endif
 };
 
 #ifndef _NETINET_IN_PCB_H_

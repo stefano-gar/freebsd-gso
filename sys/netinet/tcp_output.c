@@ -55,6 +55,7 @@ __FBSDID("$FreeBSD$");
 #include <net/if.h>
 #include <net/route.h>
 #include <net/vnet.h>
+#include <net/gso.h>
 
 #include <netinet/cc.h>
 #include <netinet/in.h>
@@ -100,6 +101,14 @@ VNET_DEFINE(int, tcp_do_tso) = 1;
 SYSCTL_VNET_INT(_net_inet_tcp, OID_AUTO, tso, CTLFLAG_RW,
 	&VNET_NAME(tcp_do_tso), 0,
 	"Enable TCP Segmentation Offload");
+
+#ifdef GSO
+VNET_DEFINE(int, tcp_do_gso) = 1;
+#define	V_tcp_do_gso		VNET(tcp_do_gso)
+SYSCTL_VNET_INT(_net_inet_tcp, OID_AUTO, gso, CTLFLAG_RW,
+	&VNET_NAME(tcp_do_gso), 0,
+	"Enable Generic Segmentation Offload");
+#endif
 
 VNET_DEFINE(int, tcp_sendspace) = 1024*32;
 #define	V_tcp_sendspace	VNET(tcp_sendspace)
@@ -184,6 +193,9 @@ tcp_output(struct tcpcb *tp)
 	int sack_rxmit, sack_bytes_rxmt;
 	struct sackhole *p;
 	int tso, mtu;
+#ifdef GSO
+	int gso;
+#endif
 	struct tcpopt to;
 #if 0
 	int maxburst = TCP_MAXBURST;
@@ -229,6 +241,9 @@ again:
 		tcp_sack_adjust(tp);
 	sendalot = 0;
 	tso = 0;
+#ifdef GSO
+	gso=0;
+#endif
 	mtu = 0;
 	off = tp->snd_nxt - tp->snd_una;
 	sendwin = min(tp->snd_wnd, tp->snd_cwnd);
@@ -489,15 +504,22 @@ after_sack_rexmit:
 	 */
 	ipsec_optlen = ipsec_hdrsiz_tcp(tp);
 #endif
-	if ((tp->t_flags & TF_TSO) && V_tcp_do_tso && len > tp->t_maxseg &&
+	if (len > tp->t_maxseg &&
 	    ((tp->t_flags & TF_SIGNATURE) == 0) &&
 	    tp->rcv_numsacks == 0 && sack_rxmit == 0 &&
 #ifdef IPSEC
 	    ipsec_optlen == 0 &&
 #endif
 	    tp->t_inpcb->inp_options == NULL &&
-	    tp->t_inpcb->in6p_options == NULL)
-		tso = 1;
+	    tp->t_inpcb->in6p_options == NULL) {
+		if ((tp->t_flags & TF_TSO) && V_tcp_do_tso)
+			tso = 1;
+#ifdef GSO
+		/*XXX-ste IP options now is not allowed in GSO */
+		if ((tp->t_flags & TF_GSO) && V_tcp_do_gso)
+			gso = 1;
+#endif
+	}
 
 	if (sack_rxmit) {
 		if (SEQ_LT(p->rxmit + len, tp->snd_una + so->so_snd.sb_cc))
@@ -777,11 +799,27 @@ send:
 			 * from overflowing or exceeding the maximum
 			 * length allowed by the network interface.
 			 */
+#ifdef GSO
+			if (len > tp->t_tsomax - hdrlen) {
+				/*
+				 * If GSO is enabled, we can send a packet
+				 * larger than t_tsomax.
+				 * The GSO will segment the packet for the TSO.
+				 */
+				if (!gso) {
+					len = tp->t_tsomax - hdrlen;
+					sendalot = 1;
+				}
+
+			} else {
+				gso = 0;
+			}
+#else
 			if (len > tp->t_tsomax - hdrlen) {
 				len = tp->t_tsomax - hdrlen;
 				sendalot = 1;
 			}
-
+#endif /* GSO */
 			/*
 			 * Prevent the last segment from being
 			 * fractional unless the send sockbuf can
@@ -802,15 +840,48 @@ send:
 			if (tp->t_flags & TF_NEEDFIN)
 				sendalot = 1;
 
-		} else {
+		}
+#ifdef GSO
+		/*
+		 * If GSO and TSO are both enabled,
+		 * make sure that the GSO is necessary and
+		 * the size of the packet does not exceed GSOMAX
+		 */
+		if (gso && tso) {
+			if (len > T_GSOMAX(tp) - hdrlen) {
+				len = T_GSOMAX(tp) - hdrlen;
+				sendalot = 1;
+			}
+			if (len <= tp->t_tsomax - hdrlen) {
+				gso=0;
+			}
+		} else if (gso) {
+			if (len > T_GSOMAX(tp) - hdrlen) {
+				len = T_GSOMAX(tp) - hdrlen;
+				sendalot = 1;
+			}
+			if (tp->t_flags & TF_NEEDFIN)
+				sendalot = 1;
+		}
+
+		if (!gso && !tso) {
+#else /* !GSO */
+		else {
+#endif /* GSO */
 			len = tp->t_maxopd - optlen - ipoptlen;
 			sendalot = 1;
 		}
-	} else
+	} else {
 		tso = 0;
+#ifdef GSO
+		gso = 0;
+#endif
+	}
 
+#ifndef GSO
 	KASSERT(len + hdrlen + ipoptlen <= IP_MAXPACKET,
 	    ("%s: len > IP_MAXPACKET", __func__));
+#endif
 
 /*#ifdef DIAGNOSTIC*/
 #ifdef INET6
@@ -1091,6 +1162,12 @@ send:
 		m->m_pkthdr.csum_flags = CSUM_TCP_IPV6;
 		th->th_sum = in6_cksum_pseudo(ip6, sizeof(struct tcphdr) +
 		    optlen + len, IPPROTO_TCP, 0);
+#ifdef GSO
+		if (gso) {
+			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_TCP6);
+			m->m_pkthdr.tso_segsz = tp->t_maxopd - optlen;
+		}
+#endif
 	}
 #endif
 #if defined(INET6) && defined(INET)
@@ -1101,7 +1178,12 @@ send:
 		m->m_pkthdr.csum_flags = CSUM_TCP;
 		th->th_sum = in_pseudo(ip->ip_src.s_addr, ip->ip_dst.s_addr,
 		    htons(sizeof(struct tcphdr) + IPPROTO_TCP + len + optlen));
-
+#ifdef GSO
+		if (gso) {
+			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_TCP4);
+			m->m_pkthdr.tso_segsz = tp->t_maxopd - optlen;
+		}
+#endif
 		/* IP version must be set here for ipv4/ipv6 checking later */
 		KASSERT(ip->ip_v == IPVERSION,
 		    ("%s: IP version incorrect: %d", __func__, ip->ip_v));
@@ -1207,7 +1289,15 @@ send:
 	struct route ro;
 
 	bzero(&ro, sizeof(ro));
+	/*
+	 * XXX-ste: if GSO is enabled, we can generate packets larger than
+	 * IP_MAXPACKET and this could create some problems
+	 */
+#ifdef GSO
+	ip->ip_len = htons(MIN(m->m_pkthdr.len, IP_MAXPACKET));
+#else
 	ip->ip_len = htons(m->m_pkthdr.len);
+#endif
 #ifdef INET6
 	if (tp->t_inpcb->inp_vflag & INP_IPV6PROTO)
 		ip->ip_ttl = in6_selecthlim(tp->t_inpcb, NULL);
