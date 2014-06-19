@@ -96,6 +96,7 @@ __FBSDID("$FreeBSD$");
 #include <net/if.h>
 #include <net/if_types.h>
 #include <net/route.h>
+#include <net/gso.h>
 
 #include <netinet/in.h>
 #include <netinet/in_kdtrace.h>
@@ -850,6 +851,11 @@ udp6_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr6,
 			m->m_pkthdr.csum_data = offsetof(struct udphdr, uh_sum);
 		}
 
+#ifdef GSO
+		if (V_udp_do_gso) {
+			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_UDP6);
+		}
+#endif
 		flags = 0;
 
 		UDP_PROBE(send, NULL, inp, ip6, inp, udp6);
