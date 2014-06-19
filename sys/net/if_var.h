@@ -217,6 +217,7 @@ struct ifnet {
 	char	if_cspare[3];
 	int	if_ispare[4];
 	void	*if_pspare[8];		/* 1 netmap, 7 TDB */
+					/* XXX-Ste 1 GSO, id=1 */
 };
 
 typedef void if_init_f_t(void *);
