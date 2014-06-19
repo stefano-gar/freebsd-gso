@@ -93,6 +93,8 @@ __FBSDID("$FreeBSD$");
 #include <net/pfil.h>
 #include <net/vnet.h>
 
+#include <net/gso.h>
+
 #include <netinet/in.h>
 #include <netinet/in_var.h>
 #include <netinet/ip_var.h>
@@ -252,6 +254,10 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 	struct route_in6 *ro_pmtu = NULL;
 	int hdrsplit = 0;
 	int sw_csum, tso;
+#ifdef GSO
+	int gso;
+	int gso_csum;
+#endif
 	struct m_tag *fwd_tag = NULL;
 
 	ip6 = mtod(m, struct ip6_hdr *);
@@ -343,7 +349,13 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 	plen = m->m_pkthdr.len - sizeof(*ip6);
 
 	/* If this is a jumbo payload, insert a jumbo payload option. */
+#ifdef GSO
+	/* If GSO on TCP is enable, we must not add jumbo option. */
+	gso_csum = m->m_pkthdr.csum_flags & CSUM_GSO_MASK;
+	if ((CSUM_TO_GSO(gso_csum) != GSO_TCP6) && (plen > IPV6_MAXPACKET)) {
+#else
 	if (plen > IPV6_MAXPACKET) {
+#endif /* GSO */
 		if (!hdrsplit) {
 			if ((error = ip6_splithdr(m, &exthdrs)) != 0) {
 				m = NULL;
@@ -794,16 +806,47 @@ passout:
 		sw_csum &= ~ifp->if_hwassist;
 	} else
 		tso = 0;
+#ifdef GSO
+	gso = gso_csum && IF_GSO(ifp)->enable
+		&& (m->m_pkthdr.len > mtu);
+	if (gso && (CSUM_TO_GSO(gso_csum) == GSO_UDP6)) {
+		/*
+		 * If the packet is not TCP, but it requires GSO, we have to
+		 * perform IP fragmentation
+		 */
+		if ((m->m_pkthdr.len > mtu) &&
+				!(opt && (opt->ip6po_flags & IP6PO_DONTFRAG))) {
+			/*
+			 * XXX-ste: we can add the frag header here
+			 */
+			m->m_pkthdr.tso_segsz = (mtu - unfragpartlen -
+					sizeof(struct ip6_frag)) & ~7;
+		} else
+			gso = 0;
+	}
+#endif
 	/*
 	 * If we added extension headers, we will not do TSO and calculate the
 	 * checksums ourselves for now.
 	 * XXX-BZ  Need a framework to know when the NIC can handle it, even
 	 * with ext. hdrs.
 	 */
+#ifdef GSO
+	if (!gso && (sw_csum & CSUM_DELAY_DATA_IPV6)) {
+#else
 	if (sw_csum & CSUM_DELAY_DATA_IPV6) {
+#endif
 		sw_csum &= ~CSUM_DELAY_DATA_IPV6;
 		in6_delayed_cksum(m, plen, sizeof(struct ip6_hdr));
 	}
+#ifdef GSO
+	else if (gso) {
+		/*
+		 * If GSO is required, we calculate the checksum later.
+		 */
+		gso_csum |= sw_csum & CSUM_DELAY_DATA_IPV6;
+	}
+#endif
 #ifdef SCTP
 	if (sw_csum & CSUM_SCTP_IPV6) {
 		sw_csum &= ~CSUM_SCTP_IPV6;
@@ -812,7 +855,10 @@ passout:
 #endif
 	m->m_pkthdr.csum_flags &= ifp->if_hwassist;
 	tlen = m->m_pkthdr.len;
-
+#ifdef GSO
+	if (gso)
+		m->m_pkthdr.csum_flags |= gso_csum;
+#endif
 	if ((opt && (opt->ip6po_flags & IP6PO_DONTFRAG)) || tso)
 		dontfrag = 1;
 	else
@@ -822,7 +868,11 @@ passout:
 		error = EMSGSIZE;
 		goto bad;
 	}
+#ifdef GSO
+	if (dontfrag && tlen > IN6_LINKMTU(ifp) && !tso && !gso) {	/* case 2-b */
+#else
 	if (dontfrag && tlen > IN6_LINKMTU(ifp) && !tso) {	/* case 2-b */
+#endif
 		/*
 		 * Even if the DONTFRAG option is specified, we cannot send the
 		 * packet when the data length is larger than the MTU of the
@@ -847,7 +897,11 @@ passout:
 	/*
 	 * transmit packet without fragmentation
 	 */
+#ifdef GSO
+	if (dontfrag || gso ||  (!alwaysfrag && tlen <= mtu)) {	/* case 1-a and 2-a */
+#else
 	if (dontfrag || (!alwaysfrag && tlen <= mtu)) {	/* case 1-a and 2-a */
+#endif
 		struct in6_ifaddr *ia6;
 
 		ip6 = mtod(m, struct ip6_hdr *);
