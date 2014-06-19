@@ -69,6 +69,7 @@ __FBSDID("$FreeBSD$");
 #include <net/if.h>
 #include <net/if_var.h>
 #include <net/route.h>
+#include <net/gso.h>
 
 #include <netinet/in.h>
 #include <netinet/in_kdtrace.h>
@@ -155,6 +156,13 @@ VNET_PCPUSTAT_DEFINE(struct udpstat, udpstat);		/* from udp_var.h */
 VNET_PCPUSTAT_SYSINIT(udpstat);
 SYSCTL_VNET_PCPUSTAT(_net_inet_udp, UDPCTL_STATS, stats, struct udpstat,
     udpstat, "UDP statistics (struct udpstat, netinet/udp_var.h)");
+
+#ifdef GSO
+VNET_DEFINE(int, udp_do_gso) = 1;
+SYSCTL_VNET_INT(_net_inet_udp, OID_AUTO, gso, CTLFLAG_RW,
+	&VNET_NAME(udp_do_gso), 0,
+	"Enable Generic Segmentation Offload");
+#endif
 
 #ifdef VIMAGE
 VNET_PCPUSTAT_SYSUNINIT(udpstat);
@@ -1356,6 +1364,15 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		ip->ip_off |= htons(IP_DF);
 	}
 
+#ifdef GSO
+	else if (V_udp_do_gso) {
+		/*
+		 * Enable the GSO only if the fragmentation
+		 * is allowed
+		 */
+		m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_UDP4);
+	}
+#endif
 	ipflags = 0;
 	if (inp->inp_socket->so_options & SO_DONTROUTE)
 		ipflags |= IP_ROUTETOIF;
@@ -1387,7 +1404,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 			faddr.s_addr = INADDR_BROADCAST;
 		ui->ui_sum = in_pseudo(ui->ui_src.s_addr, faddr.s_addr,
 		    htons((u_short)len + sizeof(struct udphdr) + pr));
-		m->m_pkthdr.csum_flags = CSUM_UDP;
+		m->m_pkthdr.csum_flags |= CSUM_UDP;
 		m->m_pkthdr.csum_data = offsetof(struct udphdr, uh_sum);
 	}
 	((struct ip *)ui)->ip_len = htons(sizeof(struct udpiphdr) + len);
