@@ -444,6 +444,7 @@ VLAN_ARRAY		opt_vlan.h
 XBONEHACK
 FLOWTABLE		opt_route.h
 FLOWTABLE_HASH_ALL	opt_route.h
+GSO			opt_inet.h # Enable Generic Segmantation Offload
 
 #
 # SCTP
