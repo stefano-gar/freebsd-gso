@@ -63,6 +63,7 @@ __FBSDID("$FreeBSD$");
 #include <net/route.h>
 #include <net/if.h>
 #include <net/vnet.h>
+#include <net/gso.h>
 
 #include <netinet/cc.h>
 #include <netinet/in.h>
@@ -1745,6 +1746,12 @@ tcp_maxmtu(struct in_conninfo *inc, struct tcp_ifcap *cap)
 				cap->ifcap |= CSUM_TSO;
 				cap->tsomax = ifp->if_hw_tsomax;
 			}
+#ifdef GSO
+			if (IF_GSO(ifp)->enable) {
+				cap->ifcap |= CSUM_GSO_MASK;
+				cap->gsomax = IF_GSO(ifp)->max_burst;
+			}
+#endif
 		}
 		RTFREE(sro.ro_rt);
 	}
@@ -1784,6 +1791,12 @@ tcp_maxmtu6(struct in_conninfo *inc, struct tcp_ifcap *cap)
 				cap->ifcap |= CSUM_TSO;
 				cap->tsomax = ifp->if_hw_tsomax;
 			}
+#ifdef GSO
+			if (IF_GSO(ifp)->enable) {
+				cap->ifcap |= CSUM_GSO_MASK;
+				cap->gsomax = IF_GSO(ifp)->max_burst;
+			}
+#endif
 		}
 		RTFREE(sro6.ro_rt);
 	}

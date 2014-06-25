@@ -142,6 +142,12 @@ VNET_DECLARE(int, udp_blackhole);
 #define	V_udp_cksum		VNET(udp_cksum)
 #define	V_udpstat		VNET(udpstat)
 #define	V_udp_blackhole		VNET(udp_blackhole)
+
+#ifdef GSO
+VNET_DECLARE(int, udp_do_gso);
+#define V_udp_do_gso		VNET(udp_do_gso)
+#endif
+
 extern int			udp_log_in_vain;
 
 int		 udp_newudpcb(struct inpcb *);

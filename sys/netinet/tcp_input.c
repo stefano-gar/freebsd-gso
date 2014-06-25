@@ -77,6 +77,7 @@ __FBSDID("$FreeBSD$");
 #include <net/if.h>
 #include <net/route.h>
 #include <net/vnet.h>
+#include <net/gso.h>
 
 #define TCPSTATES		/* for logging */
 
@@ -3633,6 +3634,14 @@ tcp_mss(struct tcpcb *tp, int offer)
 		tp->t_flags |= TF_TSO;
 		tp->t_tsomax = cap.tsomax;
 	}
+
+	/* Check the interface for GSO capabilities. */
+#ifdef GSO
+	if (cap.ifcap & CSUM_GSO_MASK) {
+		tp->t_flags |= TF_GSO;
+		T_GSOMAX(tp) = cap.gsomax;
+	}
+#endif
 }
 
 /*

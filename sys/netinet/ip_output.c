@@ -32,6 +32,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include "opt_inet.h"
 #include "opt_ipfw.h"
 #include "opt_ipsec.h"
 #include "opt_route.h"
@@ -62,6 +63,7 @@ __FBSDID("$FreeBSD$");
 #include <net/radix_mpath.h>
 #endif
 #include <net/vnet.h>
+#include <net/gso.h>
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -132,6 +134,10 @@ ip_output(struct mbuf *m, struct mbuf *opt, struct route *ro, int flags,
 	struct m_tag *fwd_tag = NULL;
 #ifdef IPSEC
 	int no_route_but_check_spd = 0;
+#endif
+#ifdef GSO
+	int gso = 0;
+	int gso_csum = 0;
 #endif
 	M_ASSERTPKTHDR(m);
 
@@ -580,10 +586,39 @@ passout:
 
 	m->m_pkthdr.csum_flags |= CSUM_IP;
 	sw_csum = m->m_pkthdr.csum_flags & ~ifp->if_hwassist;
-	if (sw_csum & CSUM_DELAY_DATA) {
-		in_delayed_cksum(m);
-		sw_csum &= ~CSUM_DELAY_DATA;
+#ifdef GSO
+	/*
+	 * XXX-ste store CSUM_GSO flags because there is
+	 *	   "bit by bit and" with ifp->hwassist that
+	 *	   reset CSUM_GSO flags in m_pkthdr.csum_flags
+	 */
+	gso_csum = m->m_pkthdr.csum_flags & CSUM_GSO_MASK;
+	gso = gso_csum && IF_GSO(ifp)->enable;
+	if (gso && (CSUM_TO_GSO(gso_csum) == GSO_UDP4)) {
+		if ((ip->ip_len > mtu) && !(ifp->if_hwassist & CSUM_FRAGMENT))
+			m->m_pkthdr.tso_segsz = (mtu - hlen) & ~7;
+		else
+			gso = 0;
 	}
+	/*
+	 * If GSO is enabled, the TCP checksum must
+	 * be calculated on each segment
+	 */
+	if ((!gso && (sw_csum & CSUM_DELAY_DATA))) {
+#else /* !GSO */
+	if (sw_csum & CSUM_DELAY_DATA) {
+#endif /* GSO */
+		if ((m->m_pkthdr.csum_flags & ifp->if_hwassist & (CSUM_TSO)) == 0) {
+			in_delayed_cksum(m);
+			sw_csum &= ~CSUM_DELAY_DATA;
+		}
+	}
+#ifdef GSO
+	else if (gso) {
+		gso_csum |= sw_csum & CSUM_DELAY_DATA;
+	}
+#endif
+
 #ifdef SCTP
 	if (sw_csum & CSUM_SCTP) {
 		sctp_delayed_cksum(m, (uint32_t)(ip->ip_hl << 2));
@@ -597,14 +632,31 @@ passout:
 	 * care of the fragmentation for us, we can just send directly.
 	 */
 	if (ip->ip_len <= mtu ||
-	    (m->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) != 0 ||
+	    (m->m_pkthdr.csum_flags & ifp->if_hwassist & (CSUM_TSO)) != 0 ||
+#ifdef GSO
+	    gso ||
+#endif
 	    ((ip->ip_off & IP_DF) == 0 && (ifp->if_hwassist & CSUM_FRAGMENT))) {
 		ip->ip_len = htons(ip->ip_len);
 		ip->ip_off = htons(ip->ip_off);
 		ip->ip_sum = 0;
-		if (sw_csum & CSUM_DELAY_IP)
-			ip->ip_sum = in_cksum(m, hlen);
 
+		/*
+		 * If GSO is enabled, the IP checksum
+		 * must be calculated on each segment
+		 */
+#ifdef GSO
+		if (!gso && (sw_csum & CSUM_DELAY_IP)) {
+#else
+		if (sw_csum & CSUM_DELAY_IP) {
+#endif
+			ip->ip_sum = in_cksum(m, hlen);
+		}
+#ifdef GSO
+		else {
+			gso_csum |= CSUM_DELAY_IP;
+		}
+#endif
 		/*
 		 * Record statistics for this interface address.
 		 * With CSUM_TSO the byte/packet count will be slightly
@@ -612,7 +664,11 @@ passout:
 		 * once instead of for every generated packet.
 		 */
 		if (!(flags & IP_FORWARDING) && ia) {
-			if (m->m_pkthdr.csum_flags & CSUM_TSO)
+			if (m->m_pkthdr.csum_flags & (CSUM_TSO
+#ifdef GSO
+							| CSUM_GSO_MASK
+#endif
+						))
 				ia->ia_ifa.if_opackets +=
 				    m->m_pkthdr.len / m->m_pkthdr.tso_segsz;
 			else
@@ -628,13 +684,24 @@ passout:
 		 * to avoid confusing lower layers.
 		 */
 		m->m_flags &= ~(M_PROTOFLAGS);
+#ifdef GSO
+		/*
+		 * Checksum computed by GSO
+		 */
+		if (gso)
+			m->m_pkthdr.csum_flags |= gso_csum;
+#endif
 		error = (*ifp->if_output)(ifp, m,
 		    		(struct sockaddr *)dst, ro);
 		goto done;
 	}
 
 	/* Balk when DF bit is set or the interface didn't support TSO. */
-	if ((ip->ip_off & IP_DF) || (m->m_pkthdr.csum_flags & CSUM_TSO)) {
+	if ((ip->ip_off & IP_DF) || (m->m_pkthdr.csum_flags & (CSUM_TSO
+#ifdef GSO
+								| CSUM_GSO_MASK
+#endif
+				))) {
 		error = EMSGSIZE;
 		IPSTAT_INC(ips_cantfrag);
 		goto bad;
