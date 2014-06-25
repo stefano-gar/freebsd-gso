@@ -294,6 +294,8 @@ struct mbuf {
 #define	CSUM_TCP_IPV6		0x4000		/* will csum IPv6/TCP */
 /*	CSUM_TSO_IPV6		0x8000		will do IPv6/TSO */
 
+#define	CSUM_GSO_MASK		0xf0000		/* will do GSO (net/gso.h) */
+
 /*	CSUM_FRAGMENT_IPV6	0x10000		will do IPv6 fragementation */
 
 #define	CSUM_DELAY_DATA_IPV6	(CSUM_TCP_IPV6 | CSUM_UDP_IPV6)
