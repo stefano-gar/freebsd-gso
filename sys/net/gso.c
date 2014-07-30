@@ -143,12 +143,9 @@ m_seg(struct mbuf *m0, int hdr_len, int mss, int *nsegs, char * hdr2_buf, int hd
 		 * Copy the header from the original packet
 		 * and create a new mbuf chain
 		 */
-		if (MHLEN < hdr_len) {
+		if (MHLEN < hdr_len)
 			m = m_getcl(M_NOWAIT, MT_DATA, M_PKTHDR);
-#ifdef GSO_STATS
-			GSOSTAT_INC(mseg.gsos_mclget);
-#endif
-		} else
+		else
 			m = m_gethdr(M_NOWAIT, MT_DATA);
 
 		if (m == NULL) {
