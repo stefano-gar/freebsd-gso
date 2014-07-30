@@ -35,22 +35,16 @@
 struct gsostat_proto {
 	uint64_t gsos_segmented;		/* total burst segmented */
 	uint64_t gsos_osegments; 		/* output segments created */
-	uint64_t gsos_maxsegmented;	/* max size of segmented packets */
-	uint64_t gsos_minsegmented;	/* min size of segmented packets */
-	uint64_t gsos_totalbyteseg;	/* total bytes segmented */
-	uint64_t gsos_max_mss;		/* max Maximum Segment Size */
-	uint64_t gsos_min_mss;		/* min Maximum Segment Size */
-};
-
-struct gsostat_mseg {
-	uint64_t gsos_pullup;		/* num of pullup in m_seg */
-	uint64_t gsos_mclget;		/* num of mclget in m_seg */
+	uint64_t gsos_maxsegmented;		/* max size of segmented packets */
+	uint64_t gsos_minsegmented;		/* min size of segmented packets */
+	uint64_t gsos_totalbyteseg;		/* total bytes segmented */
+	uint64_t gsos_max_mss;			/* max Maximum Segment Size */
+	uint64_t gsos_min_mss;			/* min Maximum Segment Size */
 };
 
 struct gsostat {
-	struct gsostat_proto tcp;	/* TCP statistics */
-	struct gsostat_proto udp;	/* IP frag (UDP) statistics */
-	struct gsostat_mseg mseg;	/* mseg statistics */
+	struct gsostat_proto tcp;		/* TCP statistics */
+	struct gsostat_proto udp;		/* IP frag (UDP) statistics */
 };
 
 
