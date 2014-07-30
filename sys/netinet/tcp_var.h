@@ -37,6 +37,7 @@
 
 #ifdef _KERNEL
 #include <net/vnet.h>
+
 /*
  * Kernel variables for tcp.
  */
