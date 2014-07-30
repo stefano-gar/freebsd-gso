@@ -139,7 +139,7 @@ enum gso_type {
 	GSO_TCP6,
 	GSO_UDP4,
 	GSO_UDP6,
-/*	
+/*
  *	GSO_SCTP4, TODO
  *	GSO_SCTP6,
  */
