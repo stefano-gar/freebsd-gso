@@ -93,7 +93,7 @@ struct gsostat {
 #define GSOSTAT_SET(name, val)		gsostat.name = val;
 #define GSOSTAT_ADD(name, val)  	gsostat.name += (val);
 #define GSOSTAT_INC(name)       	GSOSTAT_ADD(name, 1)
-#define GSOSTAT_DEC(name)		GSOSTAT_ADD(name, -1);
+#define GSOSTAT_DEC(name)			GSOSTAT_ADD(name, -1);
 #define GSOSTAT_SET_MAX(name, val)	gsostat.name = MAX(gsostat.name,val);
 #define GSOSTAT_SET_MIN(name, val)	gsostat.name = MIN(gsostat.name,val);
 
@@ -139,8 +139,10 @@ enum gso_type {
 	GSO_TCP6,
 	GSO_UDP4,
 	GSO_UDP6,
-/*      GSO_SCTP4, TODO
-	GSO_SCTP6, */
+/*	
+ *	GSO_SCTP4, TODO
+ *	GSO_SCTP6,
+ */
 	GSO_END_OF_TYPE
 };
 
