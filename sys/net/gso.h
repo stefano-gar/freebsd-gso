@@ -106,7 +106,7 @@ struct gsostat {
  *	sysctl net.gso.dev."ifname".max_burst
  *	sysctl net.gso.dev."ifname".enable
  */
-struct if_gso {  			/*XXX esposta o no??? */
+struct if_gso {  			/* XXX exposed or not? */
 	struct sysctl_ctx_list clist;	/* sysctl ctx for this interface */
 
 	/* GSO parameters for each interface */

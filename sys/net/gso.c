@@ -241,7 +241,7 @@ gso_ipv4_data_cksum(struct mbuf *m, struct ip *ip, int mac_hlen)
 	m->m_len -= mac_hlen;
 	m->m_pkthdr.len -= mac_hlen;
 #if __FreeBSD__ < 10
-	ip->ip_len = ntohs(ip->ip_len);	/*needed for cksum*/
+	ip->ip_len = ntohs(ip->ip_len);	/* needed for in_delayed_cksum() */
 #endif
 
 	in_delayed_cksum(m);
@@ -424,7 +424,7 @@ gso_ip_tcp(struct ifnet *ifp, struct mbuf *m0, struct gso_ip_tcp_state *state)
 	int total_len = m0->m_pkthdr.len;
 #endif
 
-	if (m0->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) {/* do TSO */
+	if (m0->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) {/* TSO with GSO */
 		mss = ifp->if_hw_tsomax - state->ip_hlen - state->tcp_hlen;
 	} else {
 		mss = m0->m_pkthdr.tso_segsz;
@@ -819,7 +819,7 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	m0 = m_seg(m0, hlen, mss, &nfrags,(char *) &ip6f, sizeof(struct ip6_frag));
 	if (m0 == NULL) {
 		m = m0;
-		error = ENOBUFS;                /* XXX ok? */
+		error = ENOBUFS;	/* XXX ok? */
 		goto err;
 	}
 #ifdef GSO_STATS
@@ -940,7 +940,7 @@ gso_ifattach(struct ifnet *ifp)
 	struct sysctl_oid *oid_root, *oid_p;
 
 	/*
-	 *
+	 * Check if gso_functions[] array is initialized
 	 */
 	if (gso_functions[GSO_NONE] != gso_none) {
 		gso_init();
