@@ -435,11 +435,12 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 
 #ifdef GSO
 	/*
-	 * TODO-ste:
-	 *	- gso_dispatch now can handle no-GSO packets to avoid this if.
+	 * If GSO is required, calls gso_dispatch() to do segmentation.
 	 *
+	 * The GSO subsystem will call if_transmit() to send each segment
+	 * to the device driver.
 	 */
-	if (m->m_pkthdr.csum_flags & CSUM_GSO_MASK) {/* do GSO */
+	if (m->m_pkthdr.csum_flags & CSUM_GSO_MASK) {
 		struct ether_vlan_header *eh;
 		eh = mtod(m, struct ether_vlan_header *);
 		if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
