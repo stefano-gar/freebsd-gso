@@ -515,7 +515,6 @@ after_sack_rexmit:
 		if ((tp->t_flags & TF_TSO) && V_tcp_do_tso)
 			tso = 1;
 #ifdef GSO
-		/*XXX-ste IP options now is not allowed in GSO */
 		if ((tp->t_flags & TF_GSO) && V_tcp_do_gso)
 			gso = 1;
 #endif
@@ -849,7 +848,7 @@ send:
 		 */
 		if (gso && tso) {
 			if (len > T_GSOMAX(tp) - hdrlen) {
-				len = T_GSOMAX(tp) - hdrlen;
+				len = MIN(T_GSOMAX(tp), IP_MAXPACKET) - hdrlen;
 				sendalot = 1;
 			}
 			if (len <= tp->t_tsomax - hdrlen) {
@@ -857,7 +856,7 @@ send:
 			}
 		} else if (gso) {
 			if (len > T_GSOMAX(tp) - hdrlen) {
-				len = T_GSOMAX(tp) - hdrlen;
+				len = MIN(T_GSOMAX(tp), IP_MAXPACKET) - hdrlen;
 				sendalot = 1;
 			}
 			if (tp->t_flags & TF_NEEDFIN)
@@ -878,10 +877,8 @@ send:
 #endif
 	}
 
-#ifndef GSO
 	KASSERT(len + hdrlen + ipoptlen <= IP_MAXPACKET,
 	    ("%s: len > IP_MAXPACKET", __func__));
-#endif
 
 /*#ifdef DIAGNOSTIC*/
 #ifdef INET6
@@ -1289,15 +1286,7 @@ send:
 	struct route ro;
 
 	bzero(&ro, sizeof(ro));
-	/*
-	 * XXX-ste: if GSO is enabled, we can generate packets larger than
-	 * IP_MAXPACKET and this could create some problems
-	 */
-#ifdef GSO
-	ip->ip_len = htons(MIN(m->m_pkthdr.len, IP_MAXPACKET));
-#else
 	ip->ip_len = htons(m->m_pkthdr.len);
-#endif
 #ifdef INET6
 	if (tp->t_inpcb->inp_vflag & INP_IPV6PROTO)
 		ip->ip_ttl = in6_selecthlim(tp->t_inpcb, NULL);
