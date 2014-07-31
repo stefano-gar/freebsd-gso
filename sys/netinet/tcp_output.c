@@ -822,15 +822,26 @@ send:
 			if (tp->t_flags & TF_NEEDFIN)
 				sendalot = 1;
 #ifdef GSO
+			/*
+			 * Disable GSO if TSO is required
+			 */
 			gso = 0;
 #endif
 		}
 #ifdef GSO
 		else if (gso) {
+			/*
+			 * Limit a burst to T_GSOMAC minus IP,
+			 * TCP and options length.
+			 */
 			if (len > T_GSOMAX(tp) - hdrlen) {
 				len = MIN(T_GSOMAX(tp), IP_MAXPACKET) - hdrlen;
 				sendalot = 1;
 			}
+			/*
+			 * Send the FIN in a separate segment
+			 * after the bulk sending is done.
+			 */
 			if (tp->t_flags & TF_NEEDFIN)
 				sendalot = 1;
 		}
@@ -1130,6 +1141,10 @@ send:
 		    optlen + len, IPPROTO_TCP, 0);
 #ifdef GSO
 		if (gso) {
+			/*
+			 * If GSO is enabled and required, set the type
+			 * (coded in csum_flags) and the segment size.
+			 */
 			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_TCP6);
 			m->m_pkthdr.tso_segsz = tp->t_maxopd - optlen;
 		}
@@ -1146,6 +1161,10 @@ send:
 		    htons(sizeof(struct tcphdr) + IPPROTO_TCP + len + optlen));
 #ifdef GSO
 		if (gso) {
+			/*
+			 * If GSO is enabled and required, set the type
+			 * (coded in csum_flags) and the segment size.
+			 */
 			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_TCP4);
 			m->m_pkthdr.tso_segsz = tp->t_maxopd - optlen;
 		}
