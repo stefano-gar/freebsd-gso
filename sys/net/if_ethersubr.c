@@ -436,8 +436,7 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 #ifdef GSO
 	/*
 	 * TODO-ste:
-	 *	- gso_dispatch now can handle no-GSO packets
-	 *	- avoid if
+	 *	- gso_dispatch now can handle no-GSO packets to avoid this if.
 	 *
 	 */
 	if (m->m_pkthdr.csum_flags & CSUM_GSO_MASK) {/* do GSO */
