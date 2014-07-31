@@ -797,27 +797,10 @@ send:
 			 * from overflowing or exceeding the maximum
 			 * length allowed by the network interface.
 			 */
-#ifdef GSO
-			if (len > tp->t_tsomax - hdrlen) {
-				/*
-				 * If GSO is enabled, we can send a packet
-				 * larger than t_tsomax.
-				 * The GSO will segment the packet for the TSO.
-				 */
-				if (!gso) {
-					len = tp->t_tsomax - hdrlen;
-					sendalot = 1;
-				}
-
-			} else {
-				gso = 0;
-			}
-#else
 			if (len > tp->t_tsomax - hdrlen) {
 				len = tp->t_tsomax - hdrlen;
 				sendalot = 1;
 			}
-#endif /* GSO */
 			/*
 			 * Prevent the last segment from being
 			 * fractional unless the send sockbuf can
@@ -837,23 +820,12 @@ send:
 			 */
 			if (tp->t_flags & TF_NEEDFIN)
 				sendalot = 1;
-
+#ifdef GSO
+			gso = 0;
+#endif
 		}
 #ifdef GSO
-		/*
-		 * If GSO and TSO are both enabled,
-		 * make sure that the GSO is necessary and
-		 * the size of the packet does not exceed GSOMAX
-		 */
-		if (gso && tso) {
-			if (len > T_GSOMAX(tp) - hdrlen) {
-				len = MIN(T_GSOMAX(tp), IP_MAXPACKET) - hdrlen;
-				sendalot = 1;
-			}
-			if (len <= tp->t_tsomax - hdrlen) {
-				gso=0;
-			}
-		} else if (gso) {
+		else if (gso) {
 			if (len > T_GSOMAX(tp) - hdrlen) {
 				len = MIN(T_GSOMAX(tp), IP_MAXPACKET) - hdrlen;
 				sendalot = 1;
@@ -861,11 +833,8 @@ send:
 			if (tp->t_flags & TF_NEEDFIN)
 				sendalot = 1;
 		}
-
-		if (!gso && !tso) {
-#else /* !GSO */
-		else {
 #endif /* GSO */
+		else {
 			len = tp->t_maxopd - optlen - ipoptlen;
 			sendalot = 1;
 		}
