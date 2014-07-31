@@ -594,6 +594,10 @@ passout:
 	 */
 	gso_csum = m->m_pkthdr.csum_flags & CSUM_GSO_MASK;
 	gso = gso_csum && IF_GSO(ifp)->enable;
+	/*
+	 * If GSO is enabled on UDP packet, check if it is necessary.
+	 * GSO is necessary only if the ip_len exceeds MTU
+	 */
 	if (gso && (CSUM_TO_GSO(gso_csum) == GSO_UDP4)) {
 		if ((ip->ip_len > mtu) && !(ifp->if_hwassist & CSUM_FRAGMENT))
 			m->m_pkthdr.tso_segsz = (mtu - hlen) & ~7;
