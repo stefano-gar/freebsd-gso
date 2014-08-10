@@ -54,42 +54,16 @@ struct gsostat {
 #include <sys/mbuf.h>
 #include <sys/sysctl.h>
 
-//#define GSO
-
-#define GSO_STATS
-
-#define GSO_DEBUG
-//#define GSO_TEST
-
-
 /*
- * Printf utility by netmap
+ * Enable gso statistics
+ *
+ * The statistics are accessible through sysctl net.gso.stats
+ * (struct gsostat).
  */
-#define ND(format, ...)
-#define D(format, ...)                                          \
-        do {                                                    \
-                struct timeval __xxts;                          \
-                microtime(&__xxts);                             \
-                printf("%03d.%06d %s [%d] " format "\n",        \
-                (int)__xxts.tv_sec % 1000, (int)__xxts.tv_usec, \
-                __FUNCTION__, __LINE__, ##__VA_ARGS__);         \
-        } while (0)
 
-/* rate limited, lps indicates how many per second */
-#define RD(lps, format, ...)                                    \
-        do {                                                    \
-                static int t0, __cnt;                           \
-                if (t0 != time_second) {                        \
-                        t0 = time_second;                       \
-                        __cnt = 0;                              \
-                }                                               \
-                if (__cnt++ < lps)                              \
-                        D(format, ##__VA_ARGS__);               \
-        } while (0)
+//#define GSO_STATS
 
-/*
- * In-kernel macros to update stats
- */
+/* In-kernel macros to update stats */
 #define GSOSTAT_SET(name, val)		gsostat.name = val;
 #define GSOSTAT_ADD(name, val)  	gsostat.name += (val);
 #define GSOSTAT_INC(name)       	GSOSTAT_ADD(name, 1)
@@ -104,7 +78,7 @@ struct gsostat {
  *
  * The GSO parameters can be modified through these sysctl:
  *	sysctl net.gso.dev."ifname".max_burst
- *	sysctl net.gso.dev."ifname".enable
+ *	sysctl net.gso.dev."ifname".enable_gso
  */
 struct if_gso {  			/*XXX esposta o no??? */
 	struct sysctl_ctx_list clist;	/* sysctl ctx for this interface */
@@ -164,6 +138,37 @@ enum gso_type {
 int 	gso_dispatch(struct ifnet *ifp, struct mbuf *m, u_int mac_hlen);
 void 	gso_ifattach(struct ifnet *ifp);
 void 	gso_ifdetach(struct ifnet *ifp);
+
+
+
+/* DEBUG utility */
+
+//#define GSO_DEBUG
+//#define GSO_TEST
+
+/* Printf utility by netmap */
+#define ND(format, ...)
+#define D(format, ...)                                          \
+        do {                                                    \
+                struct timeval __xxts;                          \
+                microtime(&__xxts);                             \
+                printf("%03d.%06d %s [%d] " format "\n",        \
+                (int)__xxts.tv_sec % 1000, (int)__xxts.tv_usec, \
+                __FUNCTION__, __LINE__, ##__VA_ARGS__);         \
+        } while (0)
+
+/* rate limited, lps indicates how many per second */
+#define RD(lps, format, ...)                                    \
+        do {                                                    \
+                static int t0, __cnt;                           \
+                if (t0 != time_second) {                        \
+                        t0 = time_second;                       \
+                        __cnt = 0;                              \
+                }                                               \
+                if (__cnt++ < lps)                              \
+                        D(format, ##__VA_ARGS__);               \
+        } while (0)
+
 
 #endif  /* _KERNEL */
 
