@@ -143,7 +143,6 @@ ip_output(struct mbuf *m, struct mbuf *opt, struct route *ro, int flags,
 #endif
 #ifdef GSO
 	int gso = 0;
-	int gso_csum = 0;
 #endif
 	M_ASSERTPKTHDR(m);
 
