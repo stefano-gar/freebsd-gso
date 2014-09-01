@@ -106,10 +106,8 @@ int (*gso_functions[GSO_END_OF_TYPE]) (struct ifnet*, struct mbuf*, u_int);
 static struct mbuf *
 m_seg(struct mbuf *m0, int hdr_len, int mss, int *nsegs, char * hdr2_buf, int hdr2_len)
 {
-	int error = 0;
 	int off = 0, n, firstlen;
 	struct mbuf **mnext, *mseg;
-	char *hdr_buf;
 	int total_len = m0->m_pkthdr.len;
 
 	/*
