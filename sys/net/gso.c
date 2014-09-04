@@ -68,9 +68,9 @@ SYSCTL_NODE(_net_gso, OID_AUTO, dev, CTLFLAG_RW, NULL,
 	"GSO device settings");
 
 #ifdef GSO_STATS
-struct gsostat gsostat;
+struct gsostat _gsostat;
 SYSCTL_STRUCT(_net_gso, OID_AUTO, stats, CTLFLAG_RW,
-	&gsostat, gsostat,
+	&_gsostat, gsostat,
 	"GSO statistics (struct gsostat, net/gso.h)");
 #endif
 
@@ -663,9 +663,9 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	}
 
 #ifdef GSO_STATS
-	GSOSTAT_SET_MAX(udp.gsos_max_mss,mss);
-	GSOSTAT_SET_MIN(udp.gsos_min_mss,mss);
-	GSOSTAT_ADD(udp.gsos_osegments,nfrags);
+	GSOSTAT_SET_MAX(ipv4_frag.gsos_max_mss,mss);
+	GSOSTAT_SET_MIN(ipv4_frag.gsos_min_mss,mss);
+	GSOSTAT_ADD(ipv4_frag.gsos_osegments,nfrags);
 #endif
 
 	/* first frag */
@@ -718,10 +718,10 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 #endif
 #ifdef GSO_STATS
 	if (!error) {
-		GSOSTAT_INC(udp.gsos_segmented);
-		GSOSTAT_SET_MAX(udp.gsos_maxsegmented, total_len);
-		GSOSTAT_SET_MIN(udp.gsos_minsegmented, total_len);
-		GSOSTAT_ADD(udp.gsos_totalbyteseg, total_len);
+		GSOSTAT_INC(ipv4_frag.gsos_segmented);
+		GSOSTAT_SET_MAX(ipv4_frag.gsos_maxsegmented, total_len);
+		GSOSTAT_SET_MIN(ipv4_frag.gsos_minsegmented, total_len);
+		GSOSTAT_ADD(ipv4_frag.gsos_totalbyteseg, total_len);
 	}
 #endif
         return error;
@@ -821,9 +821,9 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 		goto err;
 	}
 #ifdef GSO_STATS
-	GSOSTAT_SET_MAX(udp.gsos_max_mss,mss);
-	GSOSTAT_SET_MIN(udp.gsos_min_mss,mss);
-	GSOSTAT_ADD(udp.gsos_osegments,nfrags);
+	GSOSTAT_SET_MAX(ipv6_frag.gsos_max_mss,mss);
+	GSOSTAT_SET_MIN(ipv6_frag.gsos_min_mss,mss);
+	GSOSTAT_ADD(ipv6_frag.gsos_osegments,nfrags);
 #endif
 	/* first frag */
 	m = m0;
@@ -864,10 +864,10 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 #endif
 #ifdef GSO_STATS
 	if (!error) {
-		GSOSTAT_INC(udp.gsos_segmented);
-		GSOSTAT_SET_MAX(udp.gsos_maxsegmented, total_len);
-		GSOSTAT_SET_MIN(udp.gsos_minsegmented, total_len);
-		GSOSTAT_ADD(udp.gsos_totalbyteseg, total_len);
+		GSOSTAT_INC(ipv6_frag.gsos_segmented);
+		GSOSTAT_SET_MAX(ipv6_frag.gsos_maxsegmented, total_len);
+		GSOSTAT_SET_MIN(ipv6_frag.gsos_minsegmented, total_len);
+		GSOSTAT_ADD(ipv6_frag.gsos_totalbyteseg, total_len);
 	}
 #endif
 	return error;
@@ -928,6 +928,9 @@ gso_init()
 	gso_functions[GSO_TCP6] = gso_ipv6_tcp;
 	gso_functions[GSO_UDP6] = gso_ipv6_frag;
 #endif /* INET6 */
+#ifdef GSO_STATS
+	gsostat_reset(&_gsostat);
+#endif
 }
 
 void
