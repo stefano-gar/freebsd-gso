@@ -27,7 +27,18 @@
 #ifndef _NET_GSO_H_
 #define _NET_GSO_H_
 
+#ifdef _KERNEL
 #include <sys/types.h>
+#include <sys/stdint.h> /* UINT64_MAX */
+#include <sys/systm.h>	/* memset */
+#include <sys/mbuf.h>
+#include <sys/sysctl.h>
+#else	/* !_KERNEL */
+#include <stdint.h>		/* UINT64_MAX */
+#include <string.h>		/* memset */
+#endif	/* _KERNEL */
+
+#define GSO_SYSCTL_STATS "net.gso.stats"
 
 /*
  * Structs used to collect statistics
@@ -43,16 +54,31 @@ struct gsostat_proto {
 };
 
 struct gsostat {
-	struct gsostat_proto tcp;		/* TCP statistics */
-	struct gsostat_proto udp;		/* IP frag (UDP) statistics */
+	struct gsostat_proto tcp;			/* TCP (IPv4/IPv6) statistics */
+	struct gsostat_proto ipv4_frag;		/* IPv4 frag (UDP) statistics */
+	struct gsostat_proto ipv6_frag;		/* IPv6 frag (UDP) statistics */
 };
 
+/*
+ *	Functions used to reset statistics
+ */
+static void
+gsostat_proto_reset(struct gsostat_proto* gsp)
+{
+	memset(gsp, 0, sizeof(struct gsostat_proto));
+	gsp->gsos_minsegmented = UINT64_MAX;
+	gsp->gsos_min_mss = UINT64_MAX;
+}
+
+static void
+gsostat_reset(struct gsostat* gs)
+{
+	gsostat_proto_reset(&(gs->tcp));
+	gsostat_proto_reset(&(gs->ipv4_frag));
+	gsostat_proto_reset(&(gs->ipv6_frag));
+}
 
 #ifdef _KERNEL
-
-#include <sys/systm.h>
-#include <sys/mbuf.h>
-#include <sys/sysctl.h>
 
 /*
  * Enable gso statistics
@@ -61,15 +87,15 @@ struct gsostat {
  * (struct gsostat).
  */
 
-//#define GSO_STATS
+#define GSO_STATS
 
 /* In-kernel macros to update stats */
-#define GSOSTAT_SET(name, val)		gsostat.name = val;
-#define GSOSTAT_ADD(name, val)  	gsostat.name += (val);
+#define GSOSTAT_SET(name, val)		_gsostat.name = val;
+#define GSOSTAT_ADD(name, val)  	_gsostat.name += (val);
 #define GSOSTAT_INC(name)       	GSOSTAT_ADD(name, 1)
 #define GSOSTAT_DEC(name)			GSOSTAT_ADD(name, -1);
-#define GSOSTAT_SET_MAX(name, val)	gsostat.name = MAX(gsostat.name,val);
-#define GSOSTAT_SET_MIN(name, val)	gsostat.name = MIN(gsostat.name,val);
+#define GSOSTAT_SET_MAX(name, val)	_gsostat.name = MAX(_gsostat.name,val);
+#define GSOSTAT_SET_MIN(name, val)	_gsostat.name = MIN(_gsostat.name,val);
 
 
 /*
