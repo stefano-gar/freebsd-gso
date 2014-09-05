@@ -238,13 +238,13 @@ gso_ipv4_data_cksum(struct mbuf *m, struct ip *ip, int mac_hlen)
 	m->m_data += mac_hlen;
 	m->m_len -= mac_hlen;
 	m->m_pkthdr.len -= mac_hlen;
-#if __FreeBSD__ < 10
-	ip->ip_len = ntohs(ip->ip_len);	/*needed for cksum*/
+#if __FreeBSD_version < 1000000
+	ip->ip_len = ntohs(ip->ip_len);	/* needed for in_delayed_cksum() */
 #endif
 
 	in_delayed_cksum(m);
 
-#if __FreeBSD__ < 10
+#if __FreeBSD_version < 1000000
 	ip->ip_len = htons(ip->ip_len);
 #endif
 	m->m_pkthdr.csum_flags &= ~CSUM_DELAY_DATA;
