@@ -619,7 +619,7 @@ passout:
 	 * GSO is necessary only if the ip_len exceeds MTU
 	 */
 	if (gso && (CSUM_TO_GSO(m->m_pkthdr.csum_flags) == GSO_UDP4)) {
-		if ((ip_len > mtu) && !(ifp->if_hwassist & CSUM_FRAGMENT))
+		if (ip_len > mtu)
 			m->m_pkthdr.tso_segsz = (mtu - hlen) & ~7;
 		else
 			gso = 0;
