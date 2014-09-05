@@ -118,8 +118,14 @@ struct if_gso {  			/*XXX esposta o no??? */
  * IF_GSO returns a pointer to the struct if_gso from the ifp (struct ifnet *)
  * W_IF_GSO is used to write it
  */
+#if __FreeBSD_version < 1100000
 #define W_IF_GSO(_ifp)    	((_ifp)->if_pspare[2])
+#else
+#define W_IF_GSO(_ifp)    	((_ifp)->if_gso)
+#endif
+
 #define IF_GSO(_ifp)    	((struct if_gso *)W_IF_GSO(_ifp))
+
 
 /*
  * T_GSOMAX can be used to read/write the value of gsomax in tcpcb (TCP control block).
