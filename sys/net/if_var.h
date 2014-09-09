@@ -210,8 +210,7 @@ struct ifnet {
 					 * XXXAO: Have to find a better place
 					 * for it eventually. */
 	int	if_ispare[3];
-	void	*if_pspare[8];		/* 1 netmap, 7 TDB */
-					/* XXX-Ste 1 GSO, id=1 */
+	void	*if_pspare[8];		/* 1 netmap, 1 GSO, 6 TDB */
 };
 
 typedef void if_init_f_t(void *);
