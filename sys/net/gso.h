@@ -62,7 +62,8 @@ struct gsostat {
 /*
  *	Functions used to reset statistics
  */
-static void
+
+static inline void
 gsostat_proto_reset(struct gsostat_proto* gsp)
 {
 	memset(gsp, 0, sizeof(struct gsostat_proto));
@@ -70,7 +71,7 @@ gsostat_proto_reset(struct gsostat_proto* gsp)
 	gsp->gsos_min_mss = UINT64_MAX;
 }
 
-static void
+static inline void
 gsostat_reset(struct gsostat* gs)
 {
 	gsostat_proto_reset(&(gs->tcp));
