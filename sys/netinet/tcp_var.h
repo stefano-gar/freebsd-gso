@@ -210,8 +210,7 @@ struct tcpcb {
 
 	u_int	t_tsomax;		/* tso burst length limit */
 
-	uint32_t t_ispare[7];		/* 5 UTO, 2 TBD */
-					/* XXX-Ste 1 GSO id=5 */
+	uint32_t t_ispare[7];		/* 5 UTO, 1 GSO, 1 TBD */
 	void	*t_pspare2[4];		/* 4 TBD */
 	uint64_t _pad[6];		/* 6 TBD (1-2 CC/RTT?) */
 };
