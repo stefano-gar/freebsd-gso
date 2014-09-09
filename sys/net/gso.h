@@ -62,7 +62,6 @@ struct gsostat {
 /*
  *	Functions used to reset statistics
  */
-
 static inline void
 gsostat_proto_reset(struct gsostat_proto* gsp)
 {
@@ -87,7 +86,6 @@ gsostat_reset(struct gsostat* gs)
  * The statistics are accessible through sysctl net.gso.stats
  * (struct gsostat).
  */
-
 #define GSO_STATS
 
 /* In-kernel macros to update stats */
@@ -128,13 +126,11 @@ struct if_gso {  			/* XXX exposed or not? */
 
 #define IF_GSO(_ifp)    	((struct if_gso *)W_IF_GSO(_ifp))
 
-
 /*
  * T_GSOMAX can be used to read/write the value of gsomax in tcpcb (TCP control block).
  * XXX Temporarily it is contained in a spare field.
  */
 #define T_GSOMAX(_tp)		((_tp)->t_ispare[5])
-
 
 /*
  * GSO types
@@ -172,37 +168,6 @@ enum gso_type {
 int 	gso_dispatch(struct ifnet *ifp, struct mbuf *m, u_int mac_hlen);
 void 	gso_ifattach(struct ifnet *ifp);
 void 	gso_ifdetach(struct ifnet *ifp);
-
-
-
-/* DEBUG utility */
-
-//#define GSO_DEBUG
-//#define GSO_TEST
-
-/* Printf utility by netmap */
-#define ND(format, ...)
-#define D(format, ...)                                          \
-        do {                                                    \
-                struct timeval __xxts;                          \
-                microtime(&__xxts);                             \
-                printf("%03d.%06d %s [%d] " format "\n",        \
-                (int)__xxts.tv_sec % 1000, (int)__xxts.tv_usec, \
-                __FUNCTION__, __LINE__, ##__VA_ARGS__);         \
-        } while (0)
-
-/* rate limited, lps indicates how many per second */
-#define RD(lps, format, ...)                                    \
-        do {                                                    \
-                static int t0, __cnt;                           \
-                if (t0 != time_second) {                        \
-                        t0 = time_second;                       \
-                        __cnt = 0;                              \
-                }                                               \
-                if (__cnt++ < lps)                              \
-                        D(format, ##__VA_ARGS__);               \
-        } while (0)
-
 
 #endif  /* _KERNEL */
 
