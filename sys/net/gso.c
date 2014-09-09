@@ -87,6 +87,36 @@ MALLOC_DEFINE(M_GSO, "GSO", "GSO internals");
  */
 int (*gso_functions[GSO_END_OF_TYPE]) (struct ifnet*, struct mbuf*, u_int);
 
+/*
+ * DEBUG utilities
+ */
+//#define GSO_DEBUG
+//#define GSO_TEST
+
+/* Printf utility by netmap */
+#define ND(format, ...)
+#define D(format, ...)                                          \
+        do {                                                    \
+                struct timeval __xxts;                          \
+                microtime(&__xxts);                             \
+                printf("%03d.%06d %s [%d] " format "\n",        \
+                (int)__xxts.tv_sec % 1000, (int)__xxts.tv_usec, \
+                __FUNCTION__, __LINE__, ##__VA_ARGS__);         \
+        } while (0)
+
+/* rate limited, lps indicates how many per second */
+#define RD(lps, format, ...)                                    \
+        do {                                                    \
+                static int t0, __cnt;                           \
+                if (t0 != time_second) {                        \
+                        t0 = time_second;                       \
+                        __cnt = 0;                              \
+                }                                               \
+                if (__cnt++ < lps)                              \
+                        D(format, ##__VA_ARGS__);               \
+        } while (0)
+
+
 
 /*
  * XXX-ste: Maybe this function must be moved into kern/uipc_mbuf.c
