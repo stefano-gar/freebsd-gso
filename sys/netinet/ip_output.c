@@ -612,7 +612,7 @@ passout:
 #else /* !GSO */
 	if (sw_csum & CSUM_DELAY_DATA) {
 #endif /* GSO */
-		if ((m->m_pkthdr.csum_flags & ifp->if_hwassist & (CSUM_TSO)) == 0) {
+		if ((m->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) == 0) {
 			in_delayed_cksum(m);
 			sw_csum &= ~CSUM_DELAY_DATA;
 		}
@@ -636,7 +636,7 @@ passout:
 	 * care of the fragmentation for us, we can just send directly.
 	 */
 	if (ip->ip_len <= mtu ||
-	    (m->m_pkthdr.csum_flags & ifp->if_hwassist & (CSUM_TSO)) != 0 ||
+	    (m->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) != 0 ||
 #ifdef GSO
 	    gso ||
 #endif
