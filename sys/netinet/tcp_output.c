@@ -801,6 +801,7 @@ send:
 				len = tp->t_tsomax - hdrlen;
 				sendalot = 1;
 			}
+
 			/*
 			 * Prevent the last segment from being
 			 * fractional unless the send sockbuf can
