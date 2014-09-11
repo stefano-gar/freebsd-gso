@@ -399,7 +399,7 @@ struct mbuf {
 #define	CSUM_IP6_TSO		0x00001000	/* TCP segmentation offload */
 #define	CSUM_IP6_ISCSI		0x00002000	/* iSCSI checksum offload */
 
-#define	CSUM_GSO_MASK		0x000f0000	/* generic segmentation offload */
+#define	CSUM_GSO_MASK		0x000f0000	/* Generic segmentation offload (net/gso.h) */
 
 /* Inbound checksum support where the checksum was verified by hardware. */
 #define	CSUM_L3_CALC		0x01000000	/* calculated layer 3 csum */
