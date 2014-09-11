@@ -79,7 +79,9 @@ __FBSDID("$FreeBSD$");
 #include <net/if_var.h>
 #include <net/route.h>
 #include <net/vnet.h>
+#ifdef GSO
 #include <net/gso.h>
+#endif /* GSO */
 
 #define TCPSTATES		/* for logging */
 

@@ -92,8 +92,9 @@ __FBSDID("$FreeBSD$");
 #include <net/route.h>
 #include <net/pfil.h>
 #include <net/vnet.h>
-
+#ifdef GSO
 #include <net/gso.h>
+#endif /* GSO */
 
 #include <netinet/in.h>
 #include <netinet/in_var.h>
