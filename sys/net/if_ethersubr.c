@@ -50,8 +50,6 @@
 #include <sys/sockio.h>
 #include <sys/sysctl.h>
 
-#include <net/gso.h>
-
 #include <net/if.h>
 #include <net/if_arp.h>
 #include <net/netisr.h>
@@ -66,6 +64,9 @@
 #include <net/if_llatbl.h>
 #include <net/pf_mtag.h>
 #include <net/vnet.h>
+#ifdef GSO
+#include <net/gso.h>
+#endif /* GSO */
 
 #if defined(INET) || defined(INET6)
 #include <netinet/in.h>

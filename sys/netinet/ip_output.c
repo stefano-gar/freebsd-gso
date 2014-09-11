@@ -63,7 +63,9 @@ __FBSDID("$FreeBSD$");
 #include <net/radix_mpath.h>
 #endif
 #include <net/vnet.h>
+#ifdef GSO
 #include <net/gso.h>
+#endif /* GSO */
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
