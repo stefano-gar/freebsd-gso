@@ -379,12 +379,16 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 	 */
 	if (m->m_pkthdr.csum_flags & CSUM_GSO_MASK) {
 		struct ether_vlan_header *eh;
+		u_int eh_len;
+
 		eh = mtod(m, struct ether_vlan_header *);
 		if (eh->evl_encap_proto == htons(ETHERTYPE_VLAN)) {
-			return gso_dispatch(ifp, m, ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN);
+			eh_len = ETHER_HDR_LEN + ETHER_VLAN_ENCAP_LEN;
 		} else {
-			return gso_dispatch(ifp, m, ETHER_HDR_LEN);
+			eh_len = ETHER_HDR_LEN;
 		}
+
+		return gso_dispatch(ifp, m, eh_len);
 	}
 #endif /* GSO */
 	/*
