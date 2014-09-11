@@ -47,7 +47,7 @@
 #ifdef INET6
 #include <netinet/ip6.h>
 #include <netinet6/ip6_var.h>
-#endif
+#endif /* INET6 */
 
 #include <net/if.h>
 #include <net/if_var.h>
@@ -72,7 +72,7 @@ struct gsostat _gsostat;
 SYSCTL_STRUCT(_net_gso, OID_AUTO, stats, CTLFLAG_RW,
 	&_gsostat, gsostat,
 	"GSO statistics (struct gsostat, net/gso.h)");
-#endif
+#endif /* GSO_STATS */
 
 MALLOC_DEFINE(M_GSO, "GSO", "GSO internals");
 
@@ -93,7 +93,7 @@ int (*gso_functions[GSO_END_OF_TYPE]) (struct ifnet*, struct mbuf*, u_int);
 //#define GSO_DEBUG
 //#define GSO_TEST
 
-/* Printf utility by netmap */
+/* Printf utility from netmap */
 #define ND(format, ...)
 #define D(format, ...)                                          \
         do {                                                    \
@@ -145,14 +145,6 @@ m_seg(struct mbuf *m0, int hdr_len, int mss, int *nsegs, char * hdr2_buf, int hd
 	 */
 	if (total_len <= hdr_len + mss) {
 		return m0;
-	}
-
-	/* TODO: check all parameters*/
-	if (mss < 0) {
-#ifdef GSO_DEBUG
-		D("mss < 0 - mss= %d \n", mss);
-#endif
-		goto err;
 	}
 
 	if (!hdr2_buf || hdr2_len <= 0) {
@@ -306,7 +298,7 @@ struct gso_ip_tcp_state {
 		struct ip *ip;
 #ifdef INET6
 		struct ip6_hdr *ip6;
-#endif
+#endif /* INET6 */
 	} hdr;
 	struct tcphdr *tcp;
 	int mac_hlen;
@@ -421,7 +413,7 @@ gso_ip_tcp_init_state(struct gso_ip_tcp_state *state, struct ifnet *ifp, struct 
 		state->update = gso_ipv6_tcp_update;
 		state->internal = gso_ipv6_tcp_internal;
 	} else
-#endif
+#endif /* INET6 */
 	{
 		state->hdr.ip = (struct ip *)(mtod(m, uint8_t *) + mac_hlen);
 		state->ip_id = ntohs(state->hdr.ip->ip_id);
@@ -450,7 +442,7 @@ gso_ip_tcp(struct ifnet *ifp, struct mbuf *m0, struct gso_ip_tcp_state *state)
 	int nsegs = 0;
 #ifdef GSO_STATS
 	int total_len = m0->m_pkthdr.len;
-#endif
+#endif /* GSO_STATS */
 
 	if (m0->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) {/* TSO with GSO */
 		mss = ifp->if_hw_tsomax - state->ip_hlen - state->tcp_hlen;
@@ -478,7 +470,7 @@ gso_ip_tcp(struct ifnet *ifp, struct mbuf *m0, struct gso_ip_tcp_state *state)
 	GSOSTAT_SET_MAX(tcp.gsos_max_mss,mss);
 	GSOSTAT_SET_MIN(tcp.gsos_min_mss,mss);
 	GSOSTAT_ADD(tcp.gsos_osegments,nsegs);
-#endif
+#endif /* GSO_STATS */
 
 	/* firts pkt */
 	m = m0;
@@ -530,7 +522,7 @@ gso_ip_tcp(struct ifnet *ifp, struct mbuf *m0, struct gso_ip_tcp_state *state)
 		GSOSTAT_SET_MIN(tcp.gsos_minsegmented, total_len);
 		GSOSTAT_ADD(tcp.gsos_totalbyteseg, total_len);
 	}
-#endif
+#endif /* GSO_STATS */
 	return error;
 
 err:
@@ -648,7 +640,7 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	int nfrags = 0;
 #ifdef GSO_STATS
 	int total_len = m0->m_pkthdr.len;
-#endif
+#endif /* GSO_STATS */
 
 	hlen = mac_hlen + sizeof(struct ip);
 
@@ -696,7 +688,7 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	GSOSTAT_SET_MAX(ipv4_frag.gsos_max_mss,mss);
 	GSOSTAT_SET_MIN(ipv4_frag.gsos_min_mss,mss);
 	GSOSTAT_ADD(ipv4_frag.gsos_osegments,nfrags);
-#endif
+#endif /* GSO_STATS */
 
 	/* first frag */
 	m = m0;
@@ -753,7 +745,7 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 		GSOSTAT_SET_MIN(ipv4_frag.gsos_minsegmented, total_len);
 		GSOSTAT_ADD(ipv4_frag.gsos_totalbyteseg, total_len);
 	}
-#endif
+#endif /* GSO_STATS */
         return error;
 
  err:
@@ -788,7 +780,7 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	int nfrags = 0;
 #ifdef GSO_STATS
 	int total_len = m0->m_pkthdr.len;
-#endif
+#endif /* GSO_STATS */
 
 	hlen = mac_hlen + sizeof(struct ip6_hdr);
 
@@ -854,7 +846,7 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	GSOSTAT_SET_MAX(ipv6_frag.gsos_max_mss,mss);
 	GSOSTAT_SET_MIN(ipv6_frag.gsos_min_mss,mss);
 	GSOSTAT_ADD(ipv6_frag.gsos_osegments,nfrags);
-#endif
+#endif /* GSO_STATS */
 	/* first frag */
 	m = m0;
 	off = 0;
@@ -899,7 +891,7 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 		GSOSTAT_SET_MIN(ipv6_frag.gsos_minsegmented, total_len);
 		GSOSTAT_ADD(ipv6_frag.gsos_totalbyteseg, total_len);
 	}
-#endif
+#endif /* GSO_STATS */
 	return error;
  err:
 #ifdef GSO_DEBUG
@@ -960,7 +952,7 @@ gso_init()
 #endif /* INET6 */
 #ifdef GSO_STATS
 	gsostat_reset(&_gsostat);
-#endif
+#endif /* GSO_STATS */
 }
 
 void
