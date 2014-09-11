@@ -834,7 +834,7 @@ send:
 #ifdef GSO
 		else if (gso) {
 			/*
-			 * Limit a burst to T_GSOMAC minus IP,
+			 * Limit a burst to T_GSOMAX minus IP,
 			 * TCP and options length.
 			 */
 			if (len > T_GSOMAX(tp) - hdrlen) {
