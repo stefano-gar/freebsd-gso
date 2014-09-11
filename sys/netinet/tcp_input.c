@@ -3624,7 +3624,7 @@ tcp_mss(struct tcpcb *tp, int offer)
 		tp->t_flags |= TF_GSO;
 		T_GSOMAX(tp) = cap.gsomax;
 	}
-#endif
+#endif /* GSO */
 }
 
 /*

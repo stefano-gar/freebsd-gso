@@ -327,7 +327,7 @@ struct tcp_ifcap {
 	u_int	tsomax;
 #ifdef GSO
 	u_int	gsomax;
-#endif
+#endif /* GSO */
 };
 
 #ifndef _NETINET_IN_PCB_H_

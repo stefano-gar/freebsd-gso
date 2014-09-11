@@ -143,7 +143,7 @@ ip_output(struct mbuf *m, struct mbuf *opt, struct route *ro, int flags,
 #endif
 #ifdef GSO
 	int gso = 0;
-#endif
+#endif /* GSO */
 	M_ASSERTPKTHDR(m);
 
 	if (inp != NULL) {
@@ -656,7 +656,7 @@ passout:
 	if (ip_len <= mtu ||
 #ifdef GSO
 	    gso ||
-#endif
+#endif  /* GSO */
 	    (m->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) != 0) {
 		ip->ip_sum = 0;
 		/*
@@ -665,9 +665,9 @@ passout:
 		 */
 #ifdef GSO
 		if (!gso && (m->m_pkthdr.csum_flags & CSUM_IP & ~ifp->if_hwassist)) {
-#else
+#else /* !GSO */
 		if (m->m_pkthdr.csum_flags & CSUM_IP & ~ifp->if_hwassist) {
-#endif
+#endif /* GSO */
 			ip->ip_sum = in_cksum(m, hlen);
 			m->m_pkthdr.csum_flags &= ~CSUM_IP;
 		}
@@ -682,7 +682,7 @@ passout:
 			if (m->m_pkthdr.csum_flags & (CSUM_TSO
 #ifdef GSO
 						| CSUM_GSO_MASK
-#endif
+#endif /* GSO */
 						))
 				counter_u64_add(ia->ia_ifa.ifa_opackets,
 				    m->m_pkthdr.len / m->m_pkthdr.tso_segsz);
@@ -710,7 +710,7 @@ passout:
 		if ((ip_off & IP_DF) || (m->m_pkthdr.csum_flags & (CSUM_TSO
 #ifdef GSO
 						| CSUM_GSO_MASK
-#endif
+#endif /* GSO */
 						))) {
 		error = EMSGSIZE;
 		IPSTAT_INC(ips_cantfrag);

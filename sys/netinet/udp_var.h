@@ -149,7 +149,7 @@ VNET_DECLARE(int, udp_blackhole);
 #ifdef GSO
 VNET_DECLARE(int, udp_do_gso);
 #define V_udp_do_gso		VNET(udp_do_gso)
-#endif
+#endif /* GSO */
 
 extern int			udp_log_in_vain;
 

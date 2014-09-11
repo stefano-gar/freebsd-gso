@@ -162,7 +162,7 @@ VNET_DEFINE(int, udp_do_gso) = 1;
 SYSCTL_VNET_INT(_net_inet_udp, OID_AUTO, gso, CTLFLAG_RW,
 	&VNET_NAME(udp_do_gso), 0,
 	"Enable Generic Segmentation Offload");
-#endif
+#endif /* GSO */
 
 #ifdef VIMAGE
 VNET_PCPUSTAT_SYSUNINIT(udpstat);
@@ -1363,7 +1363,6 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		ip = (struct ip *)&ui->ui_i;
 		ip->ip_off |= htons(IP_DF);
 	}
-
 #ifdef GSO
 	else if (V_udp_do_gso) {
 		/*
@@ -1372,7 +1371,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		 */
 		m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_UDP4);
 	}
-#endif
+#endif /* GSO */
 	ipflags = 0;
 	if (inp->inp_socket->so_options & SO_DONTROUTE)
 		ipflags |= IP_ROUTETOIF;
