@@ -244,6 +244,7 @@ m_seg(struct mbuf *m0, int hdr_len, int mss, int *nsegs, char * hdr2_buf, int hd
 err:
 	while (m0 != NULL) {
 		mseg = m0->m_nextpkt;
+		m0->m_nextpkt = NULL;
 		m_freem(m0);
 		m0 = mseg;
 	}
@@ -531,6 +532,7 @@ err:
 #endif
 	while (m != NULL) {
 		m_tx = m->m_nextpkt;
+		m->m_nextpkt = NULL;
 		m_freem(m);
 		m = m_tx;
 	}
@@ -754,6 +756,7 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 #endif
 	while (m != NULL) {
 		m_tx = m->m_nextpkt;
+		m->m_nextpkt = NULL;
 		m_freem(m);
 		m = m_tx;
 	}
@@ -899,6 +902,7 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 #endif
 	while (m != NULL) {
 		m_tx = m->m_nextpkt;
+		m->m_nextpkt = NULL;
 		m_freem(m);
 		m = m_tx;
 	}
