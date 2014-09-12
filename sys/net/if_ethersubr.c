@@ -449,7 +449,7 @@ ether_output_frame(struct ifnet *ifp, struct mbuf *m)
 			return gso_dispatch(ifp, m, ETHER_HDR_LEN);
 		}
 	}
-#endif
+#endif /* GSO */
 	/*
 	 * Queue message on interface, update output statistics if
 	 * successful, and start output if interface not yet active.
@@ -943,7 +943,7 @@ ether_ifattach(struct ifnet *ifp, const u_int8_t *lla)
 #ifdef GSO
 	/* enable GSO in ethernet device */
 	gso_ifattach(ifp);
-#endif
+#endif /* GSO */
 
 	/* Announce Ethernet MAC address if non-zero. */
 	for (i = 0; i < ifp->if_addrlen; i++)
@@ -974,7 +974,7 @@ ether_ifdetach(struct ifnet *ifp)
 
 #ifdef GSO
 	gso_ifdetach(ifp);
-#endif
+#endif /* GSO */
 	bpfdetach(ifp);
 	if_detach(ifp);
 }

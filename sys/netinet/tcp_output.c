@@ -108,7 +108,7 @@ VNET_DEFINE(int, tcp_do_gso) = 1;
 SYSCTL_VNET_INT(_net_inet_tcp, OID_AUTO, gso, CTLFLAG_RW,
 	&VNET_NAME(tcp_do_gso), 0,
 	"Enable Generic Segmentation Offload");
-#endif
+#endif /* GSO */
 
 VNET_DEFINE(int, tcp_sendspace) = 1024*32;
 #define	V_tcp_sendspace	VNET(tcp_sendspace)
@@ -195,7 +195,7 @@ tcp_output(struct tcpcb *tp)
 	int tso, mtu;
 #ifdef GSO
 	int gso;
-#endif
+#endif /* GSO */
 	struct tcpopt to;
 #if 0
 	int maxburst = TCP_MAXBURST;
@@ -243,7 +243,7 @@ again:
 	tso = 0;
 #ifdef GSO
 	gso=0;
-#endif
+#endif /* GSO */
 	mtu = 0;
 	off = tp->snd_nxt - tp->snd_una;
 	sendwin = min(tp->snd_wnd, tp->snd_cwnd);
@@ -517,7 +517,7 @@ after_sack_rexmit:
 #ifdef GSO
 		if ((tp->t_flags & TF_GSO) && V_tcp_do_gso)
 			gso = 1;
-#endif
+#endif /* GSO */
 	}
 
 	if (sack_rxmit) {
@@ -827,7 +827,7 @@ send:
 			 * Disable GSO if TSO is required
 			 */
 			gso = 0;
-#endif
+#endif /* GSO */
 		}
 #ifdef GSO
 		else if (gso) {
@@ -855,7 +855,7 @@ send:
 		tso = 0;
 #ifdef GSO
 		gso = 0;
-#endif
+#endif /* GSO */
 	}
 
 	KASSERT(len + hdrlen + ipoptlen <= IP_MAXPACKET,
@@ -1149,7 +1149,7 @@ send:
 			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_TCP6);
 			m->m_pkthdr.tso_segsz = tp->t_maxopd - optlen;
 		}
-#endif
+#endif /* GSO */
 	}
 #endif
 #if defined(INET6) && defined(INET)
@@ -1169,7 +1169,7 @@ send:
 			m->m_pkthdr.csum_flags |= GSO_TO_CSUM(GSO_TCP4);
 			m->m_pkthdr.tso_segsz = tp->t_maxopd - optlen;
 		}
-#endif
+#endif /* GSO */
 		/* IP version must be set here for ipv4/ipv6 checking later */
 		KASSERT(ip->ip_v == IPVERSION,
 		    ("%s: IP version incorrect: %d", __func__, ip->ip_v));
