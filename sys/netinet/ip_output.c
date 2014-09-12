@@ -137,8 +137,8 @@ ip_output(struct mbuf *m, struct mbuf *opt, struct route *ro, int flags,
 #ifdef IPSEC
 	int no_route_but_check_spd = 0;
 #endif
-#ifdef GSO
 	int gso = 0;
+#ifdef GSO
 	int gso_csum = 0;
 #endif /* GSO */
 	M_ASSERTPKTHDR(m);
@@ -637,11 +637,8 @@ passout:
 	 * If small enough for interface, or the interface will take
 	 * care of the fragmentation for us, we can just send directly.
 	 */
-	if (ip->ip_len <= mtu ||
+	if (ip->ip_len <= mtu || gso ||
 	    (m->m_pkthdr.csum_flags & ifp->if_hwassist & CSUM_TSO) != 0 ||
-#ifdef GSO
-	    gso ||
-#endif  /* GSO */
 	    ((ip->ip_off & IP_DF) == 0 && (ifp->if_hwassist & CSUM_FRAGMENT))) {
 		ip->ip_len = htons(ip->ip_len);
 		ip->ip_off = htons(ip->ip_off);
@@ -651,11 +648,7 @@ passout:
 		 * If GSO is enabled, the IP checksum
 		 * must be calculated on each segment
 		 */
-#ifdef GSO
 		if (!gso && (sw_csum & CSUM_DELAY_IP)) {
-#else /* !GSO */
-		if (sw_csum & CSUM_DELAY_IP) {
-#endif /* GSO */
 			ip->ip_sum = in_cksum(m, hlen);
 		}
 #ifdef GSO
@@ -670,11 +663,7 @@ passout:
 		 * once instead of for every generated packet.
 		 */
 		if (!(flags & IP_FORWARDING) && ia) {
-			if (m->m_pkthdr.csum_flags & (CSUM_TSO
-#ifdef GSO
-							| CSUM_GSO_MASK
-#endif /* GSO */
-						))
+			if (m->m_pkthdr.csum_flags & (CSUM_TSO | CSUM_GSO_MASK))
 				ia->ia_ifa.if_opackets +=
 				    m->m_pkthdr.len / m->m_pkthdr.tso_segsz;
 			else
@@ -703,11 +692,8 @@ passout:
 	}
 
 	/* Balk when DF bit is set or the interface didn't support TSO. */
-	if ((ip->ip_off & IP_DF) || (m->m_pkthdr.csum_flags & (CSUM_TSO
-#ifdef GSO
-								| CSUM_GSO_MASK
-#endif /* GSO */
-				))) {
+	if ((ip->ip_off & IP_DF) ||
+			(m->m_pkthdr.csum_flags & (CSUM_TSO | CSUM_GSO_MASK))) {
 		error = EMSGSIZE;
 		IPSTAT_INC(ips_cantfrag);
 		goto bad;
