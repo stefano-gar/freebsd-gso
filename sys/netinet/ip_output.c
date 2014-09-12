@@ -609,17 +609,14 @@ passout:
 		m->m_pkthdr.csum_flags &= ~CSUM_GSO_MASK;
 	}
 	/*
-	 * If GSO is enabled, the TCP checksum must
-	 * be calculated on each segment
+	 * If GSO is enabled, the TCP checksum must be calculated on each segment.
+	 * XXX-ste:	maybe if TSO is enabled, the checksum calculation is not necessary.
+	 * 		if (!gso && (m->m_pkthdr.csum_flags & (CSUM_DELAY_DATA | CSUM_TSO) & ~ifp->if_hwassist))
 	 */
-	if (!gso && (m->m_pkthdr.csum_flags & CSUM_DELAY_DATA & ~ifp->if_hwassist)) {
-#else /* !GSO */
-	if (m->m_pkthdr.csum_flags & CSUM_DELAY_DATA & ~ifp->if_hwassist) {
 #endif /* GSO */
-		if ((m->m_pkthdr.csum_flags & ifp->if_hwassist & (CSUM_TSO)) == 0) {
-			in_delayed_cksum(m);
-			m->m_pkthdr.csum_flags &= ~CSUM_DELAY_DATA;
-		}
+	if (!gso && (m->m_pkthdr.csum_flags & CSUM_DELAY_DATA & ~ifp->if_hwassist)) {
+		in_delayed_cksum(m);
+		m->m_pkthdr.csum_flags &= ~CSUM_DELAY_DATA;
 	}
 
 #ifdef SCTP
