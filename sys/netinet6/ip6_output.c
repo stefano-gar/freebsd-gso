@@ -255,7 +255,7 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 #ifdef GSO
 	int gso;
 	int gso_csum;
-#endif
+#endif /* GSO */
 #ifdef IPSEC
 	struct ipsec_output_state state;
 	struct ip6_rthdr *rh = NULL;
@@ -372,7 +372,7 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 	/* If GSO on TCP is enable, we must not add jumbo option. */
 	gso_csum = m->m_pkthdr.csum_flags & CSUM_GSO_MASK;
 	if ((CSUM_TO_GSO(gso_csum) != GSO_TCP6) && (plen > IPV6_MAXPACKET)) {
-#else
+#else /* !GSO */
 	if (plen > IPV6_MAXPACKET) {
 #endif /* GSO */
 		if (!hdrsplit) {
@@ -993,7 +993,7 @@ passout:
 		} else
 			gso = 0;
 	}
-#endif
+#endif /* GSO */
 	/*
 	 * If we added extension headers, we will not do TSO and calculate the
 	 * checksums ourselves for now.
@@ -1002,9 +1002,9 @@ passout:
 	 */
 #ifdef GSO
 	if (!gso && (sw_csum & CSUM_DELAY_DATA_IPV6)) {
-#else
+#else /* !GSO */
 	if (sw_csum & CSUM_DELAY_DATA_IPV6) {
-#endif
+#endif /* GSO */
 		sw_csum &= ~CSUM_DELAY_DATA_IPV6;
 		in6_delayed_cksum(m, plen, sizeof(struct ip6_hdr));
 	}
@@ -1015,7 +1015,7 @@ passout:
 		 */
 		gso_csum |= sw_csum & CSUM_DELAY_DATA_IPV6;
 	}
-#endif
+#endif /* GSO */
 #ifdef SCTP
 	if (sw_csum & CSUM_SCTP_IPV6) {
 		sw_csum &= ~CSUM_SCTP_IPV6;
@@ -1027,7 +1027,7 @@ passout:
 #ifdef GSO
 	if (gso)
 		m->m_pkthdr.csum_flags |= gso_csum;
-#endif
+#endif /* GSO */
 	if ((opt && (opt->ip6po_flags & IP6PO_DONTFRAG)) || tso)
 		dontfrag = 1;
 	else
@@ -1039,9 +1039,9 @@ passout:
 	}
 #ifdef GSO
 	if (dontfrag && tlen > IN6_LINKMTU(ifp) && !tso && !gso) {	/* case 2-b */
-#else
+#else /* !GSO */
 	if (dontfrag && tlen > IN6_LINKMTU(ifp) && !tso) {	/* case 2-b */
-#endif
+#endif /* GSO */
 		/*
 		 * Even if the DONTFRAG option is specified, we cannot send the
 		 * packet when the data length is larger than the MTU of the
@@ -1068,9 +1068,9 @@ passout:
 	 */
 #ifdef GSO
 	if (dontfrag || gso ||  (!alwaysfrag && tlen <= mtu)) {	/* case 1-a and 2-a */
-#else
+#else /* !GSO */
 	if (dontfrag || (!alwaysfrag && tlen <= mtu)) {	/* case 1-a and 2-a */
-#endif
+#endif /* GSO */
 		struct in6_ifaddr *ia6;
 
 		ip6 = mtod(m, struct ip6_hdr *);

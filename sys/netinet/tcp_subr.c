@@ -1751,7 +1751,7 @@ tcp_maxmtu(struct in_conninfo *inc, struct tcp_ifcap *cap)
 				cap->ifcap |= CSUM_GSO_MASK;
 				cap->gsomax = IF_GSO(ifp)->max_burst;
 			}
-#endif
+#endif /* GSO */
 		}
 		RTFREE(sro.ro_rt);
 	}
@@ -1796,7 +1796,7 @@ tcp_maxmtu6(struct in_conninfo *inc, struct tcp_ifcap *cap)
 				cap->ifcap |= CSUM_GSO_MASK;
 				cap->gsomax = IF_GSO(ifp)->max_burst;
 			}
-#endif
+#endif /* GSO */
 		}
 		RTFREE(sro6.ro_rt);
 	}
