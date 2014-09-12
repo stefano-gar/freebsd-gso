@@ -260,8 +260,8 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 	int segleft_org = 0;
 	struct secpolicy *sp = NULL;
 #endif /* IPSEC */
+	int gso = 0;
 #ifdef GSO
-	int gso;
 	int gso_csum;
 #endif /* GSO */
 	struct m_tag *fwd_tag = NULL;
@@ -988,11 +988,7 @@ passout:
 	 * XXX-BZ  Need a framework to know when the NIC can handle it, even
 	 * with ext. hdrs.
 	 */
-#ifdef GSO
 	if (!gso && (sw_csum & CSUM_DELAY_DATA_IPV6)) {
-#else /* !GSO */
-	if (sw_csum & CSUM_DELAY_DATA_IPV6) {
-#endif /* GSO */
 		sw_csum &= ~CSUM_DELAY_DATA_IPV6;
 		in6_delayed_cksum(m, plen, sizeof(struct ip6_hdr));
 	}
@@ -1025,11 +1021,7 @@ passout:
 		error = EMSGSIZE;
 		goto bad;
 	}
-#ifdef GSO
 	if (dontfrag && tlen > IN6_LINKMTU(ifp) && !tso && !gso) {	/* case 2-b */
-#else /* !GSO */
-	if (dontfrag && tlen > IN6_LINKMTU(ifp) && !tso) {	/* case 2-b */
-#endif /* GSO */
 		/*
 		 * Even if the DONTFRAG option is specified, we cannot send the
 		 * packet when the data length is larger than the MTU of the
@@ -1054,11 +1046,7 @@ passout:
 	/*
 	 * transmit packet without fragmentation
 	 */
-#ifdef GSO
 	if (dontfrag || gso ||  (!alwaysfrag && tlen <= mtu)) {	/* case 1-a and 2-a */
-#else /* !GSO */
-	if (dontfrag || (!alwaysfrag && tlen <= mtu)) {	/* case 1-a and 2-a */
-#endif /* GSO */
 		struct in6_ifaddr *ia6;
 
 		ip6 = mtod(m, struct ip6_hdr *);
