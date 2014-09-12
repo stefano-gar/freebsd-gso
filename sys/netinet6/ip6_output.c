@@ -253,6 +253,10 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 	int hdrsplit = 0;
 	int needipsec = 0;
 	int sw_csum, tso;
+	int gso = 0;
+#ifdef GSO
+	int gso_csum;
+#endif /* GSO */
 #ifdef IPSEC
 	struct ipsec_output_state state;
 	struct ip6_rthdr *rh = NULL;
@@ -260,10 +264,6 @@ ip6_output(struct mbuf *m0, struct ip6_pktopts *opt,
 	int segleft_org = 0;
 	struct secpolicy *sp = NULL;
 #endif /* IPSEC */
-	int gso = 0;
-#ifdef GSO
-	int gso_csum;
-#endif /* GSO */
 	struct m_tag *fwd_tag = NULL;
 
 	ip6 = mtod(m, struct ip6_hdr *);
