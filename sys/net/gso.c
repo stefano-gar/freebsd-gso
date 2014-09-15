@@ -748,9 +748,9 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 		GSOSTAT_ADD(ipv4_frag.gsos_totalbyteseg, total_len);
 	}
 #endif /* GSO_STATS */
-        return error;
+	return error;
 
- err:
+err:
 #ifdef GSO_DEBUG
 	D("error - type = %d \n", error);
 #endif
@@ -760,7 +760,7 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 		m_freem(m);
 		m = m_tx;
 	}
-        return error;
+	return error;
 }
 
 
@@ -896,7 +896,7 @@ gso_ipv6_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	}
 #endif /* GSO_STATS */
 	return error;
- err:
+err:
 #ifdef GSO_DEBUG
 	D("error - type = %d \n", error);
 #endif
