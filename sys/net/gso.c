@@ -696,7 +696,7 @@ gso_ipv4_frag(struct ifnet *ifp, struct mbuf *m0, u_int mac_hlen)
 	m = m0;
 
 	ip = (struct ip *)(mtod(m, uint8_t *) + mac_hlen);
-	off = ntohs(ip->ip_off);
+	off = 0;
 
 	do {
 		ip->ip_off = htons((off >> 3) | IP_MF);
