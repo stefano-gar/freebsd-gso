@@ -39,7 +39,8 @@
  */
 // #define BATCH_DISPATCH
 // #define NIC_SEND_COMBINING
-// #define NIC_PARAVIRT	/* enable virtio-like synchronization */
+#define NIC_PARAVIRT	/* enable virtio-like synchronization */
+#define NIC_PTNETMAP 	/* enable ptnetmap support */
 
 #include "opt_inet.h"
 #include "opt_inet6.h"
@@ -265,6 +266,12 @@ static void	lem_add_rx_process_limit(struct adapter *, const char *,
 #ifdef DEVICE_POLLING
 static poll_handler_t lem_poll;
 #endif /* POLLING */
+
+#ifdef NIC_PTNETMAP
+#define ptnetmap_enabled(adapter) (adapter->ptnetmap_enabled)
+#else /* !NIC_PTNETMAP */
+#define ptnetmap_enabled(adapter) 0
+#endif /* NIC_PTNETMAP */
 
 /*********************************************************************
  *  FreeBSD Device Interface Entry Points

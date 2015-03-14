@@ -269,8 +269,14 @@
 #define	E1000_PARA_SUBDEV	0x1101		/* special id */
 #define	E1000_CSBAL		0x02830		/* csb phys. addr. low */
 #define	E1000_CSBAH		0x02834		/* csb phys. addr. hi */
-#include <net/paravirt.h>
+#include <dev/netmap/paravirt.h>
 #endif /* NIC_PARAVIRT */
+
+#ifdef NIC_PTNETMAP
+#define E1000_PTFEAT	0x02838 /* passthrough features */
+#define E1000_PTCTL		0x0283C /* passthrough control */
+#define E1000_PTSTS		0x02840 /* passthrough status */
+#endif /* NIC_PTNETMAP */
 
 /*
  * Bus dma allocation structure used by
@@ -468,6 +474,11 @@ struct adapter {
 	int				msix_rid;
 	uint32_t		msix_enabled;
 #endif /* NIC_PARAVIRT */
+#ifdef NIC_PTNETMAP
+	struct resource	*ptnetmap_res;
+	int				ptnetmap_res_id;
+	uint32_t		ptnetmap_enabled;
+#endif /* NIC_PTNETMAP */
 
 	struct e1000_hw_stats stats;
 };
