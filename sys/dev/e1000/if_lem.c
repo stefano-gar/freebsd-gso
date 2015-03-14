@@ -189,6 +189,9 @@ static int	lem_media_change(if_t);
 static void	lem_identify_hardware(struct adapter *);
 static int	lem_allocate_pci_resources(struct adapter *);
 static int	lem_allocate_irq(struct adapter *adapter);
+#ifdef NIC_PARAVIRT
+static int	lem_allocate_msix(struct adapter *adapter);
+#endif /* NIC_PARAVIRT */
 static void	lem_free_pci_resources(struct adapter *);
 static void	lem_local_timer(void *);
 static int	lem_hardware_init(struct adapter *);
@@ -565,9 +568,13 @@ lem_attach(device_t dev)
 		adapter->csb->guest_need_rxkick = 1; /* no rx packets */
 		bus_addr = adapter->csb_mem.dma_paddr;
 		lem_add_rx_process_limit(adapter, "csb_on",
-		    "enable paravirt.", &adapter->csb->guest_csb_on, 0);
+		    "enable paravirt.", &adapter->csb->guest_csb_on, 1);
 		lem_add_rx_process_limit(adapter, "txc_lim",
 		    "txc_lim", &adapter->csb->host_txcycles_lim, 1);
+		/* Try to allocate a MSI-X interrupt vector. */
+		adapter->msix_enabled = lem_allocate_msix(adapter);
+		adapter->msix_enabled = !adapter->msix_enabled;
+		adapter->csb->guest_use_msix = adapter->msix_enabled;
 
 		/* some stats */
 #define PA_SC(name, var, val)		\
@@ -1475,9 +1482,11 @@ lem_irq_fast(void *arg)
 	if (reg_icr == 0xffffffff)
 		return FILTER_STRAY;
 
+#ifndef NIC_PARAVIRT /* XXX-ste */
 	/* Definitely not our interrupt.  */
 	if (reg_icr == 0x0)
 		return FILTER_STRAY;
+#endif /* NIC_PTNETMAP */
 
 	/*
 	 * Mask interrupts until the taskqueue is finished running.  This is
@@ -2307,6 +2316,11 @@ lem_allocate_irq(struct adapter *adapter)
 	device_t dev = adapter->dev;
 	int error, rid = 0;
 
+#ifdef NIC_PARAVIRT
+	if (adapter->msix_enabled)
+		return 0;
+#endif /* NIC_PARAVIRT */
+
 	/* Manually turn off all interrupts */
 	E1000_WRITE_REG(&adapter->hw, E1000_IMC, 0xffffffff);
 
@@ -2354,6 +2368,120 @@ lem_allocate_irq(struct adapter *adapter)
 	return (0);
 }
 
+#ifdef NIC_PARAVIRT
+static int
+lem_setup_msix(struct adapter *adapter)
+{
+	device_t dev = adapter->dev;
+	int val;
+
+	adapter->msix_rid = PCIR_BAR(2);
+	adapter->msix_mem = bus_alloc_resource_any(dev,
+			SYS_RES_MEMORY, &adapter->msix_rid, RF_ACTIVE);
+	if (adapter->msix_mem == NULL) {
+		/* May not be enabled */
+		device_printf(adapter->dev,
+				"Unable to map MSIX table \n");
+		goto err;
+	}
+	val = pci_msix_count(dev);
+	/* We only need/want 2 vectors */
+	if (val >= 2)
+		val = 2;
+	else {
+		device_printf(adapter->dev,
+				"MSIX: insufficient vectors, using MSI\n");
+		goto err;
+	}
+	if ((pci_alloc_msix(dev, &val) == 0) && (val == 2)) {
+		device_printf(adapter->dev,
+				"Using MSIX interrupts "
+				"with %d vectors\n", val);
+		return (val);
+	}
+	pci_release_msi(dev);
+err:
+	if (adapter->msix_mem != NULL) {
+		bus_release_resource(dev, SYS_RES_MEMORY,
+				adapter->msix_rid, adapter->msix_mem);
+		adapter->msix_mem = NULL;
+	}
+	/* Should only happen due to manual configuration */
+	device_printf(adapter->dev,"No MSI/MSIX using a Legacy IRQ\n");
+	return 0;
+}
+
+static int
+lem_allocate_msix(struct adapter *adapter)
+{
+	device_t    dev = adapter->dev;
+	int msix = lem_setup_msix(adapter);
+	int error;
+
+	if (msix < 2)
+		return ENXIO;
+
+	/* Manually turn off all interrupts */
+	E1000_WRITE_REG(&adapter->hw, E1000_IMC, 0xffffffff);
+	E1000_WRITE_FLUSH(&adapter->hw);
+
+	/* We allocate a ctrl interrupt resource */
+	adapter->rid[0] = 1;
+	adapter->res[0] = bus_alloc_resource_any(dev,
+	    SYS_RES_IRQ, &adapter->rid[0], RF_SHAREABLE | RF_ACTIVE);
+	if (adapter->res[0] == NULL) {
+		device_printf(dev, "Unable to allocate bus resource: "
+		    "interrupt ctrl MSIX\n");
+		return (ENXIO);
+	}
+
+	TASK_INIT(&adapter->rxtx_task, 0, lem_handle_rxtx, adapter);
+	TASK_INIT(&adapter->link_task, 0, lem_handle_link, adapter);
+	adapter->tq = taskqueue_create_fast("lem_taskq", M_NOWAIT,
+	    taskqueue_thread_enqueue, &adapter->tq);
+	taskqueue_start_threads(&adapter->tq, 1, PI_NET, "%s taskq",
+	    device_get_nameunit(adapter->dev));
+
+	if ((error = bus_setup_intr(dev, adapter->res[0],
+	    INTR_TYPE_NET | INTR_MPSAFE, lem_irq_fast, NULL, adapter,
+	    &adapter->tag[0])) != 0) {
+		device_printf(dev, "Failed to register ctrl MSI-X interrupt "
+			    "handler: %d\n", error);
+		error = (ENXIO);
+		goto err;
+	}
+#if __FreeBSD_version >= 800504
+	bus_describe_intr(dev, adapter->res[0], adapter->tag[0], "ctrl %d", 0);
+#endif
+
+	/* We allocate a data interrupt resource */
+	adapter->rid[1] = 2;
+	adapter->res[1] = bus_alloc_resource_any(dev,
+	    SYS_RES_IRQ, &adapter->rid[1], RF_SHAREABLE | RF_ACTIVE);
+	if (adapter->res[1] == NULL) {
+		device_printf(dev, "Unable to allocate bus resource: "
+		    "interrupt data MSIX\n");
+		error = (ENXIO);
+		goto err;
+	}
+	if ((error = bus_setup_intr(dev, adapter->res[1],
+	    INTR_TYPE_NET | INTR_MPSAFE, lem_irq_fast, NULL, adapter,
+	    &adapter->tag[1])) != 0) {
+		device_printf(dev, "Failed to register data MSI-X interrupt "
+			    "handler: %d\n", error);
+		goto err;
+	}
+#if __FreeBSD_version >= 800504
+	bus_describe_intr(dev, adapter->res[1], adapter->tag[1], "data %d", 0);
+#endif
+
+	return 0;
+err:
+	taskqueue_free(adapter->tq);
+	adapter->tq = NULL;
+	return error;
+}
+#endif /* NIC_PARAVIRT */
 
 static void
 lem_free_pci_resources(struct adapter *adapter)
@@ -2371,6 +2499,28 @@ lem_free_pci_resources(struct adapter *adapter)
 		bus_release_resource(dev, SYS_RES_IRQ,
 		    0, adapter->res[0]);
 	}
+#ifdef NIC_PARAVIRT
+	if (adapter->tag[1] != NULL) {
+		bus_teardown_intr(dev, adapter->res[1],
+		    adapter->tag[1]);
+		adapter->tag[1] = NULL;
+	}
+
+	if (adapter->res[1] != NULL) {
+		bus_release_resource(dev, SYS_RES_IRQ,
+		    0, adapter->res[1]);
+	}
+
+	if (adapter->msix_enabled) {
+		pci_release_msi(dev);
+	}
+
+	if (adapter->msix_mem != NULL) {
+		bus_release_resource(dev, SYS_RES_MEMORY,
+				adapter->msix_rid, adapter->msix_mem);
+		adapter->msix_mem = NULL;
+	}
+#endif /* NIC_PARAVIRT */
 
 	if (adapter->memory != NULL)
 		bus_release_resource(dev, SYS_RES_MEMORY,

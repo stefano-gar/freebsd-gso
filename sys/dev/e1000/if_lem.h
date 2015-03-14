@@ -463,6 +463,10 @@ struct adapter {
 	uint32_t		tdt_reg_count;// XXX stat
 	uint32_t		tdt_int_count;// XXX stat
 	uint32_t		guest_need_kick_count;// XXX stat
+	/* MSI-X support */
+	struct resource	*msix_mem;
+	int				msix_rid;
+	uint32_t		msix_enabled;
 #endif /* NIC_PARAVIRT */
 
 	struct e1000_hw_stats stats;
