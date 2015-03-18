@@ -269,7 +269,7 @@
 #define	E1000_PARA_SUBDEV	0x1101		/* special id */
 #define	E1000_CSBAL		0x02830		/* csb phys. addr. low */
 #define	E1000_CSBAH		0x02834		/* csb phys. addr. hi */
-#include <dev/netmap/paravirt.h>
+#include <net/paravirt.h>
 #endif /* NIC_PARAVIRT */
 
 #ifdef NIC_PTNETMAP

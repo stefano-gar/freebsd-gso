@@ -111,6 +111,14 @@
 	would free only a few buffers at a time.
 
  */
+struct pt_ring {
+    uint32_t head;
+    uint32_t cur;
+    uint32_t hwcur;
+    uint32_t hwtail;
+    uint32_t sync_flags;
+};
+
 struct paravirt_csb {
     /* XXX revise the layout to minimize cache bounces.
      * Usage is described as follows:
@@ -138,10 +146,42 @@ struct paravirt_csb {
     uint32_t host_rxkick_at;       /* GR+ HW- rx ring pos where H expects a kick */
     uint32_t vnet_ring_high;	/* Vnet ring physical address high. */
     uint32_t vnet_ring_low;	/* Vnet ring physical address low. */
+
+    /* passthrough */
+    uint32_t memsize;              /* size of the shared memory */
+    uint32_t pci_bar;              /* pci bar of the shared memory in the device */
+    uint32_t nifp_offset;          /* offset of the netmap_if in the shared memory */
+    uint32_t nbuffers;		   /* number of preallocated buffers */
+    uint64_t base_addr;		   /* guest kernel-virtual base address */
+    uint64_t base_paddr;	   /* guest kernel-physical base address */
+    uint16_t num_tx_rings;
+    uint16_t num_rx_rings;
+    uint16_t num_tx_slots;
+    uint16_t num_rx_slots;
+
+    struct pt_ring tx_ring;
+    struct pt_ring rx_ring;
 };
 
 #define NET_PARAVIRT_CSB_SIZE   4096
 #define NET_PARAVIRT_NONE   (~((uint32_t)0))
+
+#define NET_PTN_FEATURES_BASE            1
+#define NET_PTN_FEATURES_FULL            2
+
+/* passthrough commands */
+#define NET_PARAVIRT_PTCTL_CONFIG	1
+#define NET_PARAVIRT_PTCTL_FINALIZE	2
+#define NET_PARAVIRT_PTCTL_IFNEW	3
+#define NET_PARAVIRT_PTCTL_IFDELETE	4
+#define NET_PARAVIRT_PTCTL_RINGSCREATE	5
+#define NET_PARAVIRT_PTCTL_RINGSDELETE	6
+#define NET_PARAVIRT_PTCTL_DEREF	7
+#define NET_PARAVIRT_PTCTL_TXSYNC	8
+#define NET_PARAVIRT_PTCTL_RXSYNC	9
+#define NET_PARAVIRT_PTCTL_REGIF        10
+#define NET_PARAVIRT_PTCTL_UNREGIF      11
+#define NET_PARAVIRT_PTCTL_HOSTMEMID	12
 
 #ifdef	QEMU_PCI_H
 
