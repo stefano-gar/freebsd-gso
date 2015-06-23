@@ -53,6 +53,7 @@
 #define VIRTIO_NET_F_GUEST_ANNOUNCE 0x200000 /* Announce device on network */
 #define VIRTIO_NET_F_MQ		0x400000 /* Device supports RFS */
 #define VIRTIO_NET_F_CTRL_MAC_ADDR 0x800000 /* Set MAC address */
+#define VIRTIO_NET_F_PTNETMAP	0x1000000 /* ptnetmap available */
 
 #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
 
