@@ -685,6 +685,19 @@ vm_map_pptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 }
 
 int
+vm_map_user_buf(struct vmctx *ctx, vm_paddr_t gpa, size_t len, void *host_buf)
+{
+	struct vm_user_buf user_buf;
+
+	bzero(&user_buf, sizeof(user_buf));
+	user_buf.gpa = gpa;
+	user_buf.len = len;
+	user_buf.addr = host_buf;
+
+	return (ioctl(ctx->fd, VM_MAP_USER_BUF, &user_buf));
+}
+
+int
 vm_setup_pptdev_msi(struct vmctx *ctx, int vcpu, int bus, int slot, int func,
     uint64_t addr, uint64_t msg, int numvec)
 {

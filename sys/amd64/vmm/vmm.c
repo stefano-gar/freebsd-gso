@@ -504,6 +504,17 @@ vm_map_mmio(struct vm *vm, vm_paddr_t gpa, size_t len, vm_paddr_t hpa)
 }
 
 int
+vm_map_mmioi_user(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thread *td)
+{
+	vm_object_t obj;
+
+	if ((obj = vmm_mmio_alloc_user(vm->vmspace, gpa, len, buf, td)) == NULL)
+		return (ENOMEM);
+	else
+		return (0);
+}
+
+int
 vm_unmap_mmio(struct vm *vm, vm_paddr_t gpa, size_t len)
 {
 

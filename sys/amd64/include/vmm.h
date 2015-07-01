@@ -172,6 +172,7 @@ int vm_reinit(struct vm *vm);
 const char *vm_name(struct vm *vm);
 int vm_malloc(struct vm *vm, vm_paddr_t gpa, size_t len);
 int vm_map_mmio(struct vm *vm, vm_paddr_t gpa, size_t len, vm_paddr_t hpa);
+int vm_map_mmio_user(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thread *td);
 int vm_unmap_mmio(struct vm *vm, vm_paddr_t gpa, size_t len);
 void *vm_gpa_hold(struct vm *, vm_paddr_t gpa, size_t len, int prot,
 		  void **cookie);

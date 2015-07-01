@@ -111,6 +111,12 @@ struct vm_pptdev_mmio {
 	size_t		len;
 };
 
+struct vm_user_buf {
+	vm_paddr_t	gpa;
+	uint64_t	addr;
+	size_t		len;
+};
+
 struct vm_pptdev_msi {
 	int		vcpu;
 	int		bus;
@@ -254,6 +260,8 @@ enum {
 	/* vm_cpuset */
 	IOCNUM_ACTIVATE_CPU = 90,
 	IOCNUM_GET_CPUSET = 91,
+
+	IOCNUM_MAP_USER_BUF = 100,
 };
 
 #define	VM_RUN		\
@@ -308,6 +316,8 @@ enum {
 	_IOW('v', IOCNUM_UNBIND_PPTDEV, struct vm_pptdev)
 #define	VM_MAP_PPTDEV_MMIO \
 	_IOW('v', IOCNUM_MAP_PPTDEV_MMIO, struct vm_pptdev_mmio)
+#define	VM_MAP_USER_BUF \
+	_IOW('v', IOCNUM_MAP_USER_BUF, struct vm_user_buf)
 #define	VM_PPTDEV_MSI \
 	_IOW('v', IOCNUM_PPTDEV_MSI, struct vm_pptdev_msi)
 #define	VM_PPTDEV_MSIX \

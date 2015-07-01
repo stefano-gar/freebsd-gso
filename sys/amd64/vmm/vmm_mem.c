@@ -55,17 +55,12 @@ vmm_mem_init(void)
 	return (0);
 }
 
-vm_object_t
-vmm_mmio_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
-	       vm_paddr_t hpa)
+static vm_object_t
+vmm_mmio_alloc_sg(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
+		struct sglist *sg)
 {
 	int error;
 	vm_object_t obj;
-	struct sglist *sg;
-
-	sg = sglist_alloc(1, M_WAITOK);
-	error = sglist_append_phys(sg, hpa, len);
-	KASSERT(error == 0, ("error %d appending physaddr to sglist", error));
 
 	obj = vm_pager_allocate(OBJT_SG, sg, len, VM_PROT_RW, 0, NULL);
 	if (obj != NULL) {
@@ -91,6 +86,51 @@ vmm_mmio_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
 		}
 	}
 
+	return (obj);
+}
+
+vm_object_t
+vmm_mmio_alloc_user(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
+	       void *buf, struct thread *td)
+{
+	int error;
+	vm_object_t obj;
+	struct sglist *sg;
+
+	sg = sglist_alloc(1, M_WAITOK);
+	error = sglist_append_user(sg, buf, len, td);
+	KASSERT(error == 0, ("error %d appending user-space buffer to sglist", error));
+
+	obj = vmm_mmio_alloc_sg(vmspace, gpa, len, sg);
+	/*
+	 * Drop the reference on the sglist.
+	 *
+	 * If the scatter/gather object was successfully allocated then it
+	 * has incremented the reference count on the sglist. Dropping the
+	 * initial reference count ensures that the sglist will be freed
+	 * when the object is deallocated.
+	 *
+	 * If the object could not be allocated then we end up freeing the
+	 * sglist.
+	 */
+	sglist_free(sg);
+
+	return (obj);
+}
+
+vm_object_t
+vmm_mmio_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
+	       vm_paddr_t hpa)
+{
+	int error;
+	vm_object_t obj;
+	struct sglist *sg;
+
+	sg = sglist_alloc(1, M_WAITOK);
+	error = sglist_append_phys(sg, hpa, len);
+	KASSERT(error == 0, ("error %d appending physaddr to sglist", error));
+
+	obj = vmm_mmio_alloc_sg(vmspace, gpa, len, sg);
 	/*
 	 * Drop the reference on the sglist.
 	 *
