@@ -113,7 +113,7 @@ struct vm_pptdev_mmio {
 
 struct vm_user_buf {
 	vm_paddr_t	gpa;
-	uint64_t	addr;
+	void 		*addr;
 	size_t		len;
 };
 

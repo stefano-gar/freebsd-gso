@@ -504,7 +504,7 @@ vm_map_mmio(struct vm *vm, vm_paddr_t gpa, size_t len, vm_paddr_t hpa)
 }
 
 int
-vm_map_mmioi_user(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thread *td)
+vm_map_mmio_user(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thread *td)
 {
 	vm_object_t obj;
 
