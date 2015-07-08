@@ -68,6 +68,7 @@ __FBSDID("$FreeBSD$");
 #include "vmm_ktr.h"
 #include "vmm_host.h"
 #include "vmm_mem.h"
+#include "vmm_usermem.h"
 #include "vmm_util.h"
 #include "vatpic.h"
 #include "vatpit.h"
@@ -503,15 +504,31 @@ vm_map_mmio(struct vm *vm, vm_paddr_t gpa, size_t len, vm_paddr_t hpa)
 		return (0);
 }
 
+static int vm_gpa_wire(struct vm *vm);
 int
 vm_map_mmio_user(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thread *td)
 {
 	vm_object_t obj;
+	int error;
 
 	if ((obj = vmm_mmio_alloc_user(vm->vmspace, gpa, len, buf, td)) == NULL)
 		return (ENOMEM);
-	else
-		return (0);
+
+	error = vm_gpa_wire(vm); /* XXX-ste: is needed? */
+
+	if (error)
+		goto err;
+
+
+	error = vmm_usermem_add(vm, gpa, len);
+	if (error)
+		goto err;
+
+	return (0);
+
+err:
+	vmm_mmio_free(vm->vmspace, gpa, len);
+	return (error);
 }
 
 int
@@ -537,6 +554,9 @@ vm_mem_allocated(struct vm *vm, vm_paddr_t gpa)
 
 	if (ppt_is_mmio(vm, gpa))
 		return (TRUE);			/* 'gpa' is pci passthru mmio */
+
+	if (usermem_is_mmio(vm, gpa))
+		return (TRUE);			/* 'gpa' is user-space buffer mapped */
 
 	return (FALSE);
 }
