@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD$");
 #include <sys/sglist.h>
 #include <sys/lock.h>
 #include <sys/rwlock.h>
+#include <sys/proc.h>
 
 #include <vm/vm.h>
 #include <vm/vm_param.h>
@@ -92,7 +93,7 @@ vmm_usermem_del(struct vm *vm, vm_paddr_t gpa, size_t len)
 }
 
 boolean_t
-usermem_is_mmio(struct vm *vm, vm_paddr_t gpa)
+usermem_mapped(struct vm *vm, vm_paddr_t gpa)
 {
 	int i;
 
@@ -105,3 +106,34 @@ usermem_is_mmio(struct vm *vm, vm_paddr_t gpa)
 	}
 	return (FALSE);
 }
+
+vm_object_t
+vmm_usermem_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
+	       void *buf, struct thread *td)
+{
+	int error;
+	vm_object_t obj;
+	vm_map_t map;
+	vm_map_entry_t entry;
+	vm_pindex_t index;
+	vm_prot_t prot;
+	boolean_t wired;
+
+	map = &td->td_proc->p_vmspace->vm_map;
+	error = vm_map_lookup(&map, (unsigned long)buf, VM_PROT_RW, &entry,
+		&obj, &index, &prot, &wired);
+
+	printf("---- guest MAP vm_object_t: %p vm_pindex: %ld ----\n", obj, index);
+	if (obj != NULL) {
+		error = vm_map_find(&vmspace->vm_map, obj, 0, &gpa, len, 0,
+				    VMFS_NO_SPACE, VM_PROT_RW, VM_PROT_RW, 0);
+		if (error != KERN_SUCCESS) {
+			vm_object_deallocate(obj);
+			obj = NULL;
+		}
+	}
+	vm_map_lookup_done(map, entry);
+
+	return (obj);
+}
+

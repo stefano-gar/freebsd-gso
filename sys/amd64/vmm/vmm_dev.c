@@ -164,7 +164,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 	struct vm_pptdev_mmio *pptmmio;
 	struct vm_pptdev_msi *pptmsi;
 	struct vm_pptdev_msix *pptmsix;
-	struct vm_user_buf *usermmio;
+	struct vm_user_buf *usermem;
 	struct vm_nmi *vmnmi;
 	struct vm_stats *vmstats;
 	struct vm_stat_desc *statdesc;
@@ -298,9 +298,9 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 				     pptmmio->hpa);
 		break;
 	case VM_MAP_USER_BUF:
-		usermmio = (struct vm_user_buf *)data;
-		error = vm_map_mmio_user(sc->vm, usermmio->gpa, usermmio->len,
-					usermmio->addr, td);
+		usermem = (struct vm_user_buf *)data;
+		error = vm_map_usermem(sc->vm, usermem->gpa, usermem->len,
+					usermem->addr, td);
 		break;
 	case VM_BIND_PPTDEV:
 		pptdev = (struct vm_pptdev *)data;
