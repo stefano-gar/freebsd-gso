@@ -444,6 +444,7 @@ vm_cleanup(struct vm *vm, bool destroy)
 	vhpet_cleanup(vm->vhpet);
 	vatpic_cleanup(vm->vatpic);
 	vioapic_cleanup(vm->vioapic);
+	vmm_usermem_cleanup(vm->vmspace);
 
 	for (i = 0; i < VM_MAXCPU; i++)
 		vcpu_cleanup(vm, i, destroy);
@@ -522,14 +523,10 @@ vm_map_usermem(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thre
 		goto err;
 #endif
 
-	error = vmm_usermem_add(vm, gpa, len);
-	if (error)
-		goto err;
-
 	return (0);
 
-err:
-	vmm_mmio_free(vm->vmspace, gpa, len);
+//err:
+	vmm_usermem_free(vm->vmspace, gpa, len);
 	return (error);
 }
 
@@ -557,7 +554,7 @@ vm_mem_allocated(struct vm *vm, vm_paddr_t gpa)
 	if (ppt_is_mmio(vm, gpa))
 		return (TRUE);			/* 'gpa' is pci passthru mmio */
 
-	if (usermem_mapped(vm, gpa))
+	if (usermem_mapped(vm->vmspace, gpa))
 		return (TRUE);			/* 'gpa' is user-space buffer mapped */
 
 	return (FALSE);

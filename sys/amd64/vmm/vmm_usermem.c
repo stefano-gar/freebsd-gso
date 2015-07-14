@@ -47,24 +47,25 @@ __FBSDID("$FreeBSD$");
 
 #include <machine/md_var.h>
 
+#include "vmm_mem.h"
 #include "vmm_usermem.h"
 
 #define MAX_USERMEMS	64
 
 static struct usermem {
-	struct vm       *vm;                    /* owner of this device */
+	struct vmspace   *vmspace;       /* guest address space */
 	vm_paddr_t	gpa;
 	size_t		len;
 } usermems[MAX_USERMEMS];
 
-int
-vmm_usermem_add(struct vm *vm, vm_paddr_t gpa, size_t len)
+static int
+vmm_usermem_add(struct vmspace *vmspace, vm_paddr_t gpa, size_t len)
 {
 	int i;
 
 	for (i = 0; i < MAX_USERMEMS; i++) {
 		if (usermems[i].len == 0) {
-			usermems[i].vm = vm;
+			usermems[i].vmspace = vmspace;
 			usermems[i].gpa = gpa;
 			usermems[i].len = len;
 			break;
@@ -79,26 +80,29 @@ vmm_usermem_add(struct vm *vm, vm_paddr_t gpa, size_t len)
 	return 0;
 }
 
-void
-vmm_usermem_del(struct vm *vm, vm_paddr_t gpa, size_t len)
+static int
+vmm_usermem_del(struct vmspace *vmspace, vm_paddr_t gpa, size_t len)
 {
 	int i;
 
 	for (i = 0; i < MAX_USERMEMS; i++) {
-		if (usermems[i].vm == vm && usermems[i].gpa == gpa
+		if (usermems[i].vmspace == vmspace && usermems[i].gpa == gpa
 				&& usermems[i].len == len) {
 			bzero(&usermems[i], sizeof(struct usermem));
+			return 1;
 		}
 	}
+
+	return 0;
 }
 
 boolean_t
-usermem_mapped(struct vm *vm, vm_paddr_t gpa)
+usermem_mapped(struct vmspace *vmspace, vm_paddr_t gpa)
 {
 	int i;
 
 	for (i = 0; i < MAX_USERMEMS; i++) {
-		if (usermems[i].vm != vm || usermems[i].len == 0)
+		if (usermems[i].vmspace != vmspace || usermems[i].len == 0)
 			continue;
 		if (gpa >= usermems[i].gpa &&
 				gpa < usermems[i].gpa + usermems[i].len)
@@ -120,10 +124,12 @@ vmm_usermem_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
 	boolean_t wired;
 
 	map = &td->td_proc->p_vmspace->vm_map;
+	/* lookup the vm_object that describe user addr */
 	error = vm_map_lookup(&map, (unsigned long)buf, VM_PROT_RW, &entry,
 		&obj, &index, &prot, &wired);
 
 	printf("---- guest MAP vm_object_t: %p vm_pindex: %ld ----\n", obj, index);
+	/* map th vm_object in the vmspace */
 	if (obj != NULL) {
 		error = vm_map_find(&vmspace->vm_map, obj, 0, &gpa, len, 0,
 				    VMFS_NO_SPACE, VM_PROT_RW, VM_PROT_RW, 0);
@@ -134,6 +140,35 @@ vmm_usermem_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
 	}
 	vm_map_lookup_done(map, entry);
 
+	/* acquire the reference to the vm_object */
+	if (obj != NULL) {
+		vm_object_reference(obj);
+		vmm_usermem_add(vmspace, gpa, len);
+	}
+
 	return (obj);
 }
 
+void
+vmm_usermem_free(struct vmspace *vmspace, vm_paddr_t gpa, size_t len)
+{
+	int ret;
+
+	ret  = vmm_usermem_del(vmspace, gpa, len);
+	if (ret) {
+		vmm_mem_free(vmspace, gpa, len);
+	}
+}
+
+void
+vmm_usermem_cleanup(struct vmspace *vmspace)
+{
+	int i;
+
+	for (i = 0; i < MAX_USERMEMS; i++) {
+		if (usermems[i].vmspace == vmspace) {
+			vmm_mem_free(vmspace, usermems[i].gpa, usermems[i].len);
+			bzero(&usermems[i], sizeof(struct usermem));
+		}
+	}
+}
