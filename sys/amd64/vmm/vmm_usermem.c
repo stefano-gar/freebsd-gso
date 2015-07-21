@@ -131,7 +131,7 @@ vmm_usermem_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
 	printf("---- guest MAP vm_object_t: %p vm_pindex: %ld ----\n", obj, index);
 	/* map th vm_object in the vmspace */
 	if (obj != NULL) {
-		error = vm_map_find(&vmspace->vm_map, obj, 0, &gpa, len, 0,
+		error = vm_map_find(&vmspace->vm_map, obj, index, &gpa, len, 0,
 				    VMFS_NO_SPACE, VM_PROT_RW, VM_PROT_RW, 0);
 		if (error != KERN_SUCCESS) {
 			vm_object_deallocate(obj);
