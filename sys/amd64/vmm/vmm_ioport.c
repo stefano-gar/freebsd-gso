@@ -100,19 +100,131 @@ inout_instruction(struct vm_exit *vmexit)
 }
 #endif	/* KTR */
 
+#ifdef VMM_IOPORT_REG_HANDLER
+static int
+vmm_ioport_reg_wakeup(struct vm *vm, struct ioport_reg_handler *vregh)
+{
+	wakeup(vregh->handler_arg);
+	return (0);
+}
+
+static int
+vmm_ioport_add_handler(struct vm *vm, uint16_t port, int match_data, uint32_t data,
+		ioport_reg_handler_func_t handler, void *handler_arg)
+{
+	struct ioport_reg_handler *vregh;
+	int i, empty_h = -1;
+
+	vregh = vm_regh(vm);
+	for (i = 0; i < IOPORT_MAX_REG_HANDLER; i++) {
+		if ((empty_h < 0) && (vregh[i].handler == NULL)) {
+			empty_h = i;
+		} else if ((vregh[i].port == port)
+				&& (!vregh[i].match_data || !match_data || vregh[i].data == data)) {
+			printf("%s: handler for port %d match_data %d data %d already registered\n",
+					__FUNCTION__, port, match_data, data);
+			return (EFAULT);
+		}
+	}
+
+	if (empty_h < 0) {
+		printf("%s: empty reg_handler slot not found\n", __FUNCTION__);
+		return (ENOMEM);
+	}
+
+	vregh[empty_h].port = port;
+	vregh[empty_h].match_data = match_data;
+	vregh[empty_h].data = data;
+	vregh[empty_h].handler = handler;
+	vregh[empty_h].handler_arg = handler_arg;
+
+	return (0);
+}
+
+static int
+vmm_ioport_del_handler(struct vm *vm, uint16_t port, int match_data, uint32_t data)
+{
+	struct ioport_reg_handler *vregh;
+	int i;
+
+	vregh = vm_regh(vm);
+	for (i = 0; i < IOPORT_MAX_REG_HANDLER; i++) {
+		if ((vregh[i].handler != NULL) && (vregh[i].port == port)
+				&& (!(vregh[i].match_data & match_data) || vregh[i].data == data)) {
+			bzero(&vregh[i], sizeof(struct ioport_reg_handler));
+			return (0);
+		}
+	}
+
+	return (EFAULT);
+}
+
+int
+vmm_ioport_reg_handler(struct vm *vm, uint16_t port, int match_data, uint32_t data,
+		int type, void *arg)
+{
+	int ret = 0;
+
+	switch (type) { /* TODO-ste create enum */
+	case 0: /* delete */
+		ret = vmm_ioport_del_handler(vm, port, match_data, data);
+		break;
+	case 1:
+		ret = vmm_ioport_add_handler(vm, port, match_data, data, vmm_ioport_reg_wakeup, arg);
+		break;
+	default:
+		printf("%s: unknown type\n", __FUNCTION__);
+		ret = EINVAL;
+	}
+
+	return (ret);
+}
+
+static struct ioport_reg_handler *
+vmm_get_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit)
+{
+	struct ioport_reg_handler *vregh;
+	uint32_t mask, data;
+	int port;
+	int i;
+
+	mask = vie_size2mask(vmexit->u.inout.bytes);
+
+	if (!vmexit->u.inout.in) {
+		data = vmexit->u.inout.eax & mask;
+	} else {
+		return NULL;
+	}
+	port = vmexit->u.inout.port;
+
+	vregh = vm_regh(vm);
+	for (i = 0; i < IOPORT_MAX_REG_HANDLER; i++) {
+		if ((vregh[i].handler != NULL) && (vregh[i].port == port)
+				&& (!vregh[i].match_data || vregh[i].data == data)) {
+			return &vregh[i];
+		}
+	}
+
+	return NULL;
+}
+
+#endif /* VMM_IOPORT_REG_HANDLER */
+
 static int
 emulate_inout_port(struct vm *vm, int vcpuid, struct vm_exit *vmexit,
     bool *retu)
 {
 	ioport_handler_func_t handler;
+	struct ioport_reg_handler *vregh = NULL;
 	uint32_t mask, val;
 	int error;
 
 	/*
 	 * If there is no handler for the I/O port then punt to userspace.
 	 */
-	if (vmexit->u.inout.port >= MAX_IOPORTS ||
-	    (handler = ioport_handler[vmexit->u.inout.port]) == NULL) {
+	if ((vmexit->u.inout.port >= MAX_IOPORTS ||
+	    (handler = ioport_handler[vmexit->u.inout.port]) == NULL) &&
+	    (vregh = vmm_get_reg_handler(vm, vcpuid, vmexit)) == NULL) {
 		*retu = true;
 		return (0);
 	}
@@ -123,8 +235,12 @@ emulate_inout_port(struct vm *vm, int vcpuid, struct vm_exit *vmexit,
 		val = vmexit->u.inout.eax & mask;
 	}
 
-	error = (*handler)(vm, vcpuid, vmexit->u.inout.in,
-	    vmexit->u.inout.port, vmexit->u.inout.bytes, &val);
+	if (vregh == NULL) {
+		error = (*handler)(vm, vcpuid, vmexit->u.inout.in,
+			vmexit->u.inout.port, vmexit->u.inout.bytes, &val);
+	} else {
+		error = (*(vregh->handler))(vm, vregh);
+	}
 	if (error) {
 		/*
 		 * The value returned by this function is also the return value

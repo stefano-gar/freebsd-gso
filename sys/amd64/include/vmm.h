@@ -211,6 +211,7 @@ struct vm_exit *vm_exitinfo(struct vm *vm, int vcpuid);
 void vm_exit_suspended(struct vm *vm, int vcpuid, uint64_t rip);
 void vm_exit_rendezvous(struct vm *vm, int vcpuid, uint64_t rip);
 void vm_exit_astpending(struct vm *vm, int vcpuid, uint64_t rip);
+struct ioport_reg_handler *vm_regh(struct vm *vm);
 
 /*
  * Rendezvous all vcpus specified in 'dest' and execute 'func(arg)'.

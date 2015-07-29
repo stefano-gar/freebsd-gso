@@ -151,6 +151,7 @@ struct vm {
 	struct vmspace	*vmspace;		/* (o) guest's address space */
 	char		name[VM_MAX_NAMELEN];	/* (o) virtual machine name */
 	struct vcpu	vcpu[VM_MAXCPU];	/* (i) guest vcpus */
+	struct ioport_reg_handler vregh[IOPORT_MAX_REG_HANDLER];
 };
 
 static int vmm_initialized;
@@ -2251,6 +2252,12 @@ vm_pmtmr(struct vm *vm)
 {
 
 	return (vm->vpmtmr);
+}
+
+struct ioport_reg_handler *
+vm_regh(struct vm *vm)
+{
+	return (vm->vregh);
 }
 
 enum vm_reg_name

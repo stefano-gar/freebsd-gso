@@ -698,6 +698,22 @@ vm_map_user_buf(struct vmctx *ctx, vm_paddr_t gpa, size_t len, void *host_buf)
 }
 
 int
+vm_io_reg_handler(struct vmctx *ctx, uint16_t port, int match_data, uint32_t data,
+    int type, void *arg)
+{
+	struct vm_io_reg_handler ioregh;
+
+	bzero(&ioregh, sizeof(ioregh));
+	ioregh.port = port;
+	ioregh.match_data = match_data;
+	ioregh.data = data;
+	ioregh.type = type;
+	ioregh.arg = arg;
+
+	return (ioctl(ctx->fd, VM_IO_REG_HANDLER, &ioregh));
+}
+
+int
 vm_setup_pptdev_msi(struct vmctx *ctx, int vcpu, int bus, int slot, int func,
     uint64_t addr, uint64_t msg, int numvec)
 {

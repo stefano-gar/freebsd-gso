@@ -117,6 +117,14 @@ struct vm_user_buf {
 	size_t		len;
 };
 
+struct vm_io_reg_handler {
+	uint16_t	port;
+	int		match_data; /* XXX use bool? */
+	uint32_t	data;
+	int		type; /* TODO: create enum in vmm.h */
+	void		*arg;
+};
+
 struct vm_pptdev_msi {
 	int		vcpu;
 	int		bus;
@@ -262,6 +270,7 @@ enum {
 	IOCNUM_GET_CPUSET = 91,
 
 	IOCNUM_MAP_USER_BUF = 100,
+	IOCNUM_IO_REG_HANDLER = 101,
 };
 
 #define	VM_RUN		\
@@ -318,6 +327,8 @@ enum {
 	_IOW('v', IOCNUM_MAP_PPTDEV_MMIO, struct vm_pptdev_mmio)
 #define	VM_MAP_USER_BUF \
 	_IOW('v', IOCNUM_MAP_USER_BUF, struct vm_user_buf)
+#define	VM_IO_REG_HANDLER \
+	_IOW('v', IOCNUM_IO_REG_HANDLER, struct vm_io_reg_handler)
 #define	VM_PPTDEV_MSI \
 	_IOW('v', IOCNUM_PPTDEV_MSI, struct vm_pptdev_msi)
 #define	VM_PPTDEV_MSIX \
