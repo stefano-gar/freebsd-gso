@@ -118,11 +118,12 @@ struct vm_user_buf {
 };
 
 struct vm_io_reg_handler {
-	uint16_t	port;
-	int		match_data; /* XXX use bool? */
-	uint32_t	data;
-	int		type; /* TODO: create enum in vmm.h */
-	void		*arg;
+	uint16_t		port;
+	uint16_t		in;
+	uint32_t		mask_data; /* 0 means match anything */
+	uint32_t		data;
+	enum vm_io_regh_type	type;
+	void			*arg;
 };
 
 struct vm_pptdev_msi {

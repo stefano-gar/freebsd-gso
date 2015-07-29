@@ -306,7 +306,7 @@ vmmdev_ioctl(struct cdev *cdev, u_long cmd, caddr_t data, int fflag,
 		break;
 	case VM_IO_REG_HANDLER:
 		ioregh = (struct vm_io_reg_handler *)data;
-		error = vmm_ioport_reg_handler(sc->vm, ioregh->port, ioregh->match_data,
+		error = vmm_ioport_reg_handler(sc->vm, ioregh->port, ioregh->in, ioregh->mask_data,
 					ioregh->data, ioregh->type, ioregh->arg);
 		break;
 	case VM_BIND_PPTDEV:

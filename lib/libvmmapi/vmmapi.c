@@ -698,14 +698,15 @@ vm_map_user_buf(struct vmctx *ctx, vm_paddr_t gpa, size_t len, void *host_buf)
 }
 
 int
-vm_io_reg_handler(struct vmctx *ctx, uint16_t port, int match_data, uint32_t data,
-    int type, void *arg)
+vm_io_reg_handler(struct vmctx *ctx, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data,
+     enum vm_io_regh_type type, void *arg)
 {
 	struct vm_io_reg_handler ioregh;
 
 	bzero(&ioregh, sizeof(ioregh));
 	ioregh.port = port;
-	ioregh.match_data = match_data;
+	ioregh.in = in;
+	ioregh.mask_data = mask_data;
 	ioregh.data = data;
 	ioregh.type = type;
 	ioregh.arg = arg;

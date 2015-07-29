@@ -109,8 +109,8 @@ int	vm_setup_pptdev_msix(struct vmctx *ctx, int vcpu, int bus, int slot,
 int	vm_get_intinfo(struct vmctx *ctx, int vcpu, uint64_t *i1, uint64_t *i2);
 int	vm_set_intinfo(struct vmctx *ctx, int vcpu, uint64_t exit_intinfo);
 int	vm_map_user_buf(struct vmctx *ctx, vm_paddr_t gpa, size_t len, void *host_buf);
-int	vm_io_reg_handler(struct vmctx *ctx, uint16_t port, int match_data,
-	    uint32_t data, int type, void *arg);
+int	vm_io_reg_handler(struct vmctx *ctx, uint16_t port, uint16_t in,
+	    uint32_t mask_data, uint32_t data, enum vm_io_regh_type type, void *arg);
 /*
  * Return a pointer to the statistics buffer. Note that this is not MT-safe.
  */

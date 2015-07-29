@@ -382,7 +382,13 @@ enum vm_intr_trigger {
 	EDGE_TRIGGER,
 	LEVEL_TRIGGER
 };
-	
+
+enum vm_io_regh_type {
+	VM_IO_REGH_DELETE,
+	VM_IO_REGH_KWEVENTS,	/* kernel wait events */
+	VM_IO_REGH_MAX
+};
+
 /*
  * The 'access' field has the format specified in Table 21-2 of the Intel
  * Architecture Manual vol 3b.
