@@ -137,6 +137,7 @@ struct vm {
 	struct vatpic	*vatpic;		/* (i) virtual atpic */
 	struct vatpit	*vatpit;		/* (i) virtual atpit */
 	struct vpmtmr	*vpmtmr;		/* (i) virtual ACPI PM timer */
+	struct ioregh	*ioregh;		/* () I/O reg handler */
 	volatile cpuset_t active_cpus;		/* (i) active vcpus */
 	int		suspend;		/* (i) stop VM execution */
 	volatile cpuset_t suspended_cpus; 	/* (i) suspended vcpus */
@@ -151,7 +152,6 @@ struct vm {
 	struct vmspace	*vmspace;		/* (o) guest's address space */
 	char		name[VM_MAX_NAMELEN];	/* (o) virtual machine name */
 	struct vcpu	vcpu[VM_MAXCPU];	/* (i) guest vcpus */
-	struct ioport_reg_handler vregh[IOPORT_MAX_REG_HANDLER];
 };
 
 static int vmm_initialized;
@@ -378,6 +378,7 @@ vm_init(struct vm *vm, bool create)
 	vm->vatpic = vatpic_init(vm);
 	vm->vatpit = vatpit_init(vm);
 	vm->vpmtmr = vpmtmr_init(vm);
+	vm->ioregh = ioregh_init(vm);
 
 	CPU_ZERO(&vm->active_cpus);
 
@@ -440,6 +441,7 @@ vm_cleanup(struct vm *vm, bool destroy)
 	if (vm->iommu != NULL)
 		iommu_destroy_domain(vm->iommu);
 
+	ioregh_cleanup(vm->ioregh);
 	vpmtmr_cleanup(vm->vpmtmr);
 	vatpit_cleanup(vm->vatpit);
 	vhpet_cleanup(vm->vhpet);
@@ -2254,10 +2256,10 @@ vm_pmtmr(struct vm *vm)
 	return (vm->vpmtmr);
 }
 
-struct ioport_reg_handler *
-vm_regh(struct vm *vm)
+struct ioregh *
+vm_ioregh(struct vm *vm)
 {
-	return (vm->vregh);
+	return (vm->ioregh);
 }
 
 enum vm_reg_name

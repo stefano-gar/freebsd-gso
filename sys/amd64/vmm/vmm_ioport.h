@@ -34,16 +34,13 @@
 #ifdef VMM_IOPORT_REG_HANDLER
 #define IOPORT_MAX_REG_HANDLER	12
 struct ioport_reg_handler;
-typedef int (*ioport_reg_handler_func_t)(struct vm *vm, struct ioport_reg_handler *vregh,
+struct ioregh;
+
+typedef int (*ioport_reg_handler_func_t)(struct vm *vm, struct ioport_reg_handler *regh,
     uint32_t *val);
-struct ioport_reg_handler {
-	uint16_t port;
-	uint16_t in;
-	uint32_t mask_data;
-	uint32_t data;
-	ioport_reg_handler_func_t handler;
-	void *handler_arg;
-};
+
+struct ioregh *ioregh_init(struct vm *vm);
+void ioregh_cleanup(struct ioregh *ioregh);
 
 int
 vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data,

@@ -101,27 +101,54 @@ inout_instruction(struct vm_exit *vmexit)
 #endif	/* KTR */
 
 #ifdef VMM_IOPORT_REG_HANDLER
+#include <sys/kernel.h>
+#include <sys/lock.h>
+#include <sys/malloc.h>
+#include <sys/mutex.h>
+#include <sys/systm.h>
+
+static MALLOC_DEFINE(M_IOREGH, "ioregh", "bhyve ioport reg handlers");
+
+#define IOREGH_LOCK(ioregh)	mtx_lock_spin(&((ioregh)->mtx))
+#define IOREGH_UNLOCK(ioregh)	mtx_unlock_spin(&((ioregh)->mtx))
+
+struct ioport_reg_handler {
+	uint16_t port;
+	uint16_t in;
+	uint32_t mask_data;
+	uint32_t data;
+	ioport_reg_handler_func_t handler;
+	void *handler_arg;
+};
+
+struct ioregh {
+	struct mtx mtx;
+	/* TODO: use hash table is better */
+	struct ioport_reg_handler handlers[IOPORT_MAX_REG_HANDLER];
+};
+
 static int
-vmm_ioport_reg_wakeup(struct vm *vm, struct ioport_reg_handler *vregh, uint32_t *val)
+vmm_ioport_reg_wakeup(struct vm *vm, struct ioport_reg_handler *regh, uint32_t *val)
 {
-	wakeup(vregh->handler_arg);
+	wakeup(regh->handler_arg);
 	return (0);
 }
 
+/* call with ioregh->mtx held */
 static struct ioport_reg_handler *
-vmm_ioport_find_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data)
+vmm_ioport_find_handler(struct ioregh *ioregh, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data)
 {
-	struct ioport_reg_handler *vregh;
+	struct ioport_reg_handler *regh;
 	uint32_t mask;
 	int i;
 
-	vregh = vm_regh(vm);
+	regh = ioregh->handlers;
 	for (i = 0; i < IOPORT_MAX_REG_HANDLER; i++) {
-		if (vregh[i].handler != NULL) {
-			mask = vregh[i].mask_data & mask_data;
-			if ((vregh[i].port == port) && (vregh[i].in == in)
-				&& ((mask & vregh[i].data) == (mask & data))) {
-				return &vregh[i];
+		if (regh[i].handler != NULL) {
+			mask = regh[i].mask_data & mask_data;
+			if ((regh[i].port == port) && (regh[i].in == in)
+				&& ((mask & regh[i].data) == (mask & data))) {
+				return &regh[i];
 			}
 		}
 	}
@@ -129,16 +156,17 @@ vmm_ioport_find_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask
 	return (NULL);
 }
 
+/* call with ioregh->mtx held */
 static struct ioport_reg_handler *
-vmm_ioport_empty_handler(struct vm *vm)
+vmm_ioport_empty_handler(struct ioregh *ioregh)
 {
-	struct ioport_reg_handler *vregh;
+	struct ioport_reg_handler *regh;
 	int i;
 
-	vregh = vm_regh(vm);
+	regh = ioregh->handlers;
 	for (i = 0; i < IOPORT_MAX_REG_HANDLER; i++) {
-		if (vregh[i].handler == NULL) {
-			return &vregh[i];
+		if (regh[i].handler == NULL) {
+			return &regh[i];
 		}
 	}
 
@@ -150,47 +178,63 @@ static int
 vmm_ioport_add_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data,
 		ioport_reg_handler_func_t handler, void *handler_arg)
 {
-	struct ioport_reg_handler *vregh;
+	struct ioport_reg_handler *regh;
+	struct ioregh *ioregh;
+	int ret = 0;
 
-	vregh = vmm_ioport_find_handler(vm, port, in, mask_data, data);
-	if (vregh != NULL) {
+	ioregh = vm_ioregh(vm);
+
+	IOREGH_LOCK(ioregh);
+
+	regh = vmm_ioport_find_handler(ioregh, port, in, mask_data, data);
+	if (regh != NULL) {
 		printf("%s: handler for port %d in %d mask_data %d data %d already registered\n",
 				__FUNCTION__, port, in,  mask_data, data);
-		return (EFAULT);
+		ret = EFAULT;
+		goto err;
 	}
 
-	vregh = vmm_ioport_empty_handler(vm);
-	if (vregh == NULL) {
+	regh = vmm_ioport_empty_handler(ioregh);
+	if (regh == NULL) {
 		printf("%s: empty reg_handler slot not found\n", __FUNCTION__);
-		return (ENOMEM);
+		ret = ENOMEM;
+		goto err;
 	}
 
-	vregh->port = port;
-	vregh->in = in;
-	vregh->mask_data = mask_data;
-	vregh->data = data;
-	vregh->handler = handler;
-	vregh->handler_arg = handler_arg;
+	regh->port = port;
+	regh->in = in;
+	regh->mask_data = mask_data;
+	regh->data = data;
+	regh->handler = handler;
+	regh->handler_arg = handler_arg;
 
-	printf("%s: handler for port %x in %x mask_data %x data %x registered\n",
-				__FUNCTION__, port, in,  mask_data, data);
-
-	return (0);
+err:
+	IOREGH_UNLOCK(ioregh);
+	return (ret);
 }
 
 static int
 vmm_ioport_del_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data)
 {
-	struct ioport_reg_handler *vregh;
+	struct ioport_reg_handler *regh;
+	struct ioregh *ioregh;
+	int ret = 0;
 
-	vregh = vmm_ioport_find_handler(vm, port, in, mask_data, data);
+	ioregh = vm_ioregh(vm);
 
-	if (vregh == NULL) {
-		return (EFAULT);
+	IOREGH_LOCK(ioregh);
+
+	regh = vmm_ioport_find_handler(ioregh, port, in, mask_data, data);
+
+	if (regh == NULL) {
+		ret = EFAULT;
+		goto err;
 	}
 
-	bzero(vregh, sizeof(struct ioport_reg_handler));
-	return (0);
+	bzero(regh, sizeof(struct ioport_reg_handler));
+err:
+	IOREGH_UNLOCK(ioregh);
+	return (ret);
 }
 
 int
@@ -209,6 +253,7 @@ vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 	default:
 		printf("%s: unknown reg_handler type\n", __FUNCTION__);
 		ret = EINVAL;
+		break;
 	}
 
 	return (ret);
@@ -217,18 +262,41 @@ vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 static int
 emulate_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit, uint32_t *val, int *error)
 {
-	struct ioport_reg_handler *vregh;
+	struct ioport_reg_handler *regh;
+	struct ioregh *ioregh;
 	uint32_t mask_data;
 
 	mask_data = vie_size2mask(vmexit->u.inout.bytes);
-	vregh = vmm_ioport_find_handler(vm, vmexit->u.inout.port, vmexit->u.inout.in,
+	ioregh = vm_ioregh(vm);
+
+	IOREGH_LOCK(ioregh);
+	regh = vmm_ioport_find_handler(ioregh, vmexit->u.inout.port, vmexit->u.inout.in,
 			mask_data, vmexit->u.inout.eax);
-	if (vregh == NULL) {
+	IOREGH_UNLOCK(ioregh);
+	if (regh == NULL) {
 		return (0);
 	}
 
-	*error = (*(vregh->handler))(vm, vregh, val);
+	*error = (*(regh->handler))(vm, regh, val);
 	return (1);
+}
+
+struct ioregh *
+ioregh_init(struct vm *vm)
+{
+	struct ioregh *ioregh;
+
+	ioregh = malloc(sizeof(struct ioregh), M_IOREGH, M_WAITOK | M_ZERO);
+
+	mtx_init(&ioregh->mtx, "ioregh lock", NULL, MTX_SPIN);
+
+	return (ioregh);
+}
+
+void
+ioregh_cleanup(struct ioregh *ioregh)
+{
+	free(ioregh, M_IOREGH);
 }
 
 #endif /* VMM_IOPORT_REG_HANDLER */
