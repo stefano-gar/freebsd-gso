@@ -112,6 +112,11 @@ static MALLOC_DEFINE(M_IOREGH, "ioregh", "bhyve ioport reg handlers");
 #define IOREGH_LOCK(ioregh)	mtx_lock_spin(&((ioregh)->mtx))
 #define IOREGH_UNLOCK(ioregh)	mtx_unlock_spin(&((ioregh)->mtx))
 
+#define IOPORT_MAX_REG_HANDLER	12
+
+typedef int (*ioport_reg_handler_func_t)(struct vm *vm, struct ioport_reg_handler *regh,
+    uint32_t *val);
+
 struct ioport_reg_handler {
 	uint16_t port;
 	uint16_t in;
@@ -127,6 +132,9 @@ struct ioregh {
 	struct ioport_reg_handler handlers[IOPORT_MAX_REG_HANDLER];
 };
 
+/* ----- I/O reg handlers ----- */
+
+/* VM_IO_REGH_KWEVENTS handler */
 static int
 vmm_ioport_reg_wakeup(struct vm *vm, struct ioport_reg_handler *regh, uint32_t *val)
 {
@@ -298,7 +306,8 @@ ioregh_cleanup(struct ioregh *ioregh)
 {
 	free(ioregh, M_IOREGH);
 }
-
+#else /* !VMM_IOPORT_REG_HANDLER */
+#define emulate_reg_handler(_1, _2, _3, _4, _5) (0)
 #endif /* VMM_IOPORT_REG_HANDLER */
 
 static int
@@ -307,7 +316,7 @@ emulate_inout_port(struct vm *vm, int vcpuid, struct vm_exit *vmexit,
 {
 	ioport_handler_func_t handler;
 	uint32_t mask, val;
-	int regh = 0, error;
+	int regh = 0, error = 0;
 
 	/*
 	 * If there is no handler for the I/O port then punt to userspace.
