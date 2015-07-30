@@ -198,7 +198,7 @@ vmm_ioport_add_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 	if (regh != NULL) {
 		printf("%s: handler for port %d in %d mask_data %d data %d already registered\n",
 				__FUNCTION__, port, in,  mask_data, data);
-		ret = EFAULT;
+		ret = EEXIST;
 		goto err;
 	}
 
@@ -235,7 +235,7 @@ vmm_ioport_del_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 	regh = vmm_ioport_find_handler(ioregh, port, in, mask_data, data);
 
 	if (regh == NULL) {
-		ret = EFAULT;
+		ret = EINVAL;
 		goto err;
 	}
 
