@@ -508,29 +508,15 @@ vm_map_mmio(struct vm *vm, vm_paddr_t gpa, size_t len, vm_paddr_t hpa)
 		return (0);
 }
 
-static int vm_gpa_wire(struct vm *vm);
 int
 vm_map_usermem(struct vm *vm, vm_paddr_t gpa, size_t len, void *buf, struct thread *td)
 {
 	vm_object_t obj;
-	int error;
-
 
 	if ((obj = vmm_usermem_alloc(vm->vmspace, gpa, len, buf, td)) == NULL)
 		return (ENOMEM);
 
-#if 0
-	error = vm_gpa_wire(vm); /* XXX-ste: is needed? */
-
-	if (error)
-		goto err;
-#endif
-
 	return (0);
-
-//err:
-	vmm_usermem_free(vm->vmspace, gpa, len);
-	return (error);
 }
 
 int
