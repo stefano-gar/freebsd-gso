@@ -268,7 +268,7 @@ vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 }
 
 static int
-emulate_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit, uint32_t *val, int *error)
+invoke_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit, uint32_t *val, int *error)
 {
 	struct ioport_reg_handler *regh;
 	struct ioregh *ioregh;
@@ -280,12 +280,13 @@ emulate_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit, uint32_t 
 	IOREGH_LOCK(ioregh);
 	regh = vmm_ioport_find_handler(ioregh, vmexit->u.inout.port, vmexit->u.inout.in,
 			mask_data, vmexit->u.inout.eax);
-	IOREGH_UNLOCK(ioregh);
 	if (regh == NULL) {
+		IOREGH_UNLOCK(ioregh);
 		return (0);
 	}
-
+	/* XXX: maybe is better to use refcount and lock only find */
 	*error = (*(regh->handler))(vm, regh, val);
+	IOREGH_UNLOCK(ioregh);
 	return (1);
 }
 
@@ -307,7 +308,7 @@ ioregh_cleanup(struct ioregh *ioregh)
 	free(ioregh, M_IOREGH);
 }
 #else /* !VMM_IOPORT_REG_HANDLER */
-#define emulate_reg_handler(_1, _2, _3, _4, _5) (0)
+#define invoke_reg_handler(_1, _2, _3, _4, _5) (0)
 #endif /* VMM_IOPORT_REG_HANDLER */
 
 static int
@@ -323,7 +324,7 @@ emulate_inout_port(struct vm *vm, int vcpuid, struct vm_exit *vmexit,
 	 */
 	if ((vmexit->u.inout.port >= MAX_IOPORTS ||
 	    (handler = ioport_handler[vmexit->u.inout.port]) == NULL) &&
-	    (regh = emulate_reg_handler(vm, vcpuid, vmexit, &val, &error)) == 0) {
+	    (regh = invoke_reg_handler(vm, vcpuid, vmexit, &val, &error)) == 0) {
 		*retu = true;
 		return (0);
 	}
