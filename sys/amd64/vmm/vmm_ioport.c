@@ -114,16 +114,26 @@ static MALLOC_DEFINE(M_IOREGH, "ioregh", "bhyve ioport reg handlers");
 
 #define IOPORT_MAX_REG_HANDLER	12
 
-typedef int (*ioport_reg_handler_func_t)(struct vm *vm, struct ioport_reg_handler *regh,
-    uint32_t *val);
+/*
+ * ioport_reg_handler functions allows us to to catch VM write/read
+ * on specific I/O address and send notification.
+ *
+ * When the VM writes or reads a specific value on I/O address, if the address
+ * and the value matches with the info stored durign the handler registration,
+ * then we send a notification (we can have multiple type of notification,
+ * but for now is implemented only the VM_IO_REGH_KWEVENTS handler.
+ */
+
+typedef int (*ioport_reg_handler_func_t)(struct vm *vm,
+		struct ioport_reg_handler *regh, uint32_t *val);
 
 struct ioport_reg_handler {
-	uint16_t port;
-	uint16_t in;
-	uint32_t mask_data;
-	uint32_t data;
-	ioport_reg_handler_func_t handler;
-	void *handler_arg;
+	uint16_t port;i				/* I/O address */
+	uint16_t in;				/* 0 out, 1 in */
+	uint32_t mask_data;			/* 0 means match anything */
+	uint32_t data;				/* data to match */
+	ioport_reg_handler_func_t handler;	/* handler pointer */
+	void *handler_arg;			/* handler argument */
 };
 
 struct ioregh {
@@ -134,7 +144,12 @@ struct ioregh {
 
 /* ----- I/O reg handlers ----- */
 
-/* VM_IO_REGH_KWEVENTS handler */
+/*
+ * VM_IO_REGH_KWEVENTS handler
+ *
+ * wakeup() on specified address that uniquely identifies the event
+ *
+ */
 static int
 vmm_ioport_reg_wakeup(struct vm *vm, struct ioport_reg_handler *regh, uint32_t *val)
 {
@@ -142,9 +157,17 @@ vmm_ioport_reg_wakeup(struct vm *vm, struct ioport_reg_handler *regh, uint32_t *
 	return (0);
 }
 
+/*
+ * TODO:
+ * - VM_IO_REGH_CONDSIGNAL:	pthread_cond_signal
+ * - VM_IO_REGH_WRITEFD:	write on fd
+ * - VM_IO_REGH_IOCTL:		ioctl on fd
+ */
+
 /* call with ioregh->mtx held */
 static struct ioport_reg_handler *
-vmm_ioport_find_handler(struct ioregh *ioregh, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data)
+vmm_ioport_find_handler(struct ioregh *ioregh, uint16_t port, uint16_t in,
+		uint32_t mask_data, uint32_t data)
 {
 	struct ioport_reg_handler *regh;
 	uint32_t mask;
@@ -183,8 +206,8 @@ vmm_ioport_empty_handler(struct ioregh *ioregh)
 
 
 static int
-vmm_ioport_add_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data,
-		ioport_reg_handler_func_t handler, void *handler_arg)
+vmm_ioport_add_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data,
+	uint32_t data, ioport_reg_handler_func_t handler, void *handler_arg)
 {
 	struct ioport_reg_handler *regh;
 	struct ioregh *ioregh;
@@ -196,7 +219,8 @@ vmm_ioport_add_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 
 	regh = vmm_ioport_find_handler(ioregh, port, in, mask_data, data);
 	if (regh != NULL) {
-		printf("%s: handler for port %d in %d mask_data %d data %d already registered\n",
+		printf("%s: handler for port %d in %d mask_data %d data %d \
+				already registered\n",
 				__FUNCTION__, port, in,  mask_data, data);
 		ret = EEXIST;
 		goto err;
@@ -222,7 +246,8 @@ err:
 }
 
 static int
-vmm_ioport_del_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data)
+vmm_ioport_del_handler(struct vm *vm, uint16_t port, uint16_t in,
+	uint32_t mask_data, uint32_t data)
 {
 	struct ioport_reg_handler *regh;
 	struct ioregh *ioregh;
@@ -245,9 +270,12 @@ err:
 	return (ret);
 }
 
+/*
+ * register or delete a new I/O event handler.
+ */
 int
-vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data,
-		enum vm_io_regh_type type, void *arg)
+vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in,
+	uint32_t mask_data, uint32_t data, enum vm_io_regh_type type, void *arg)
 {
 	int ret = 0;
 
@@ -256,7 +284,8 @@ vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 		ret = vmm_ioport_del_handler(vm, port, in, mask_data, data);
 		break;
 	case VM_IO_REGH_KWEVENTS:
-		ret = vmm_ioport_add_handler(vm, port, in, mask_data, data, vmm_ioport_reg_wakeup, arg);
+		ret = vmm_ioport_add_handler(vm, port, in, mask_data, data,
+				vmm_ioport_reg_wakeup, arg);
 		break;
 	default:
 		printf("%s: unknown reg_handler type\n", __FUNCTION__);
@@ -267,8 +296,12 @@ vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_
 	return (ret);
 }
 
+/*
+ * Invoke an handler, if the data matches.
+ */
 static int
-invoke_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit, uint32_t *val, int *error)
+invoke_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit,
+	uint32_t *val, int *error)
 {
 	struct ioport_reg_handler *regh;
 	struct ioregh *ioregh;
@@ -278,13 +311,12 @@ invoke_reg_handler(struct vm *vm, int vcpuid, struct vm_exit *vmexit, uint32_t *
 	ioregh = vm_ioregh(vm);
 
 	IOREGH_LOCK(ioregh);
-	regh = vmm_ioport_find_handler(ioregh, vmexit->u.inout.port, vmexit->u.inout.in,
-			mask_data, vmexit->u.inout.eax);
+	regh = vmm_ioport_find_handler(ioregh, vmexit->u.inout.port,
+			vmexit->u.inout.in, mask_data, vmexit->u.inout.eax);
 	if (regh == NULL) {
 		IOREGH_UNLOCK(ioregh);
 		return (0);
 	}
-	/* XXX: maybe is better to use refcount and lock only find */
 	*error = (*(regh->handler))(vm, regh, val);
 	IOREGH_UNLOCK(ioregh);
 	return (1);

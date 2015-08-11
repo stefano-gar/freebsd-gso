@@ -50,11 +50,20 @@ __FBSDID("$FreeBSD$");
 #include "vmm_mem.h"
 #include "vmm_usermem.h"
 
+/*
+ * usermem functions allow us to map an host userspace buffer (eg. from bhyve)
+ * in the guest VM.
+ *
+ * This feature is used to implement ptnetmap on bhyve, mapping the netmap memory
+ * (returned by the mmap() in the byvhe userspace application) in the guest VM.
+ */
+
+/* TODO: we can create a dynamical list of usermem */
 #define MAX_USERMEMS	64
 
 static struct usermem {
-	struct vmspace   *vmspace;       /* guest address space */
-	vm_paddr_t	gpa;
+	struct vmspace   *vmspace;	/* guest address space */
+	vm_paddr_t	gpa;		/* guest physical address */
 	size_t		len;
 } usermems[MAX_USERMEMS];
 
@@ -128,7 +137,6 @@ vmm_usermem_alloc(struct vmspace *vmspace, vm_paddr_t gpa, size_t len,
 	error = vm_map_lookup(&map, (unsigned long)buf, VM_PROT_RW, &entry,
 		&obj, &index, &prot, &wired);
 
-	printf("---- guest MAP vm_object_t: %p vm_pindex: %ld ----\n", obj, index);
 	/* map th vm_object in the vmspace */
 	if (obj != NULL) {
 		error = vm_map_find(&vmspace->vm_map, obj, index, &gpa, len, 0,

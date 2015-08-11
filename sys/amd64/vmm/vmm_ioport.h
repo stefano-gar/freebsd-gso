@@ -30,7 +30,6 @@
 #define	_VMM_IOPORT_H_
 
 #define VMM_IOPORT_REG_HANDLER
-
 #ifdef VMM_IOPORT_REG_HANDLER
 struct ioport_reg_handler;
 struct ioregh;
@@ -38,9 +37,8 @@ struct ioregh;
 struct ioregh *ioregh_init(struct vm *vm);
 void ioregh_cleanup(struct ioregh *ioregh);
 
-int
-vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in, uint32_t mask_data, uint32_t data,
-     enum vm_io_regh_type type, void *arg);
+int vmm_ioport_reg_handler(struct vm *vm, uint16_t port, uint16_t in,
+	uint32_t mask_data, uint32_t data, enum vm_io_regh_type type, void *arg);
 #else /* !VMM_IOPORT_REG_HANDLER */
 #define ioregh_init(_1)	(NULL)
 #define ioregh_cleanup(_1)
