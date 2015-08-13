@@ -128,7 +128,7 @@ typedef int (*ioport_reg_handler_func_t)(struct vm *vm,
 		struct ioport_reg_handler *regh, uint32_t *val);
 
 struct ioport_reg_handler {
-	uint16_t port;i				/* I/O address */
+	uint16_t port;				/* I/O address */
 	uint16_t in;				/* 0 out, 1 in */
 	uint32_t mask_data;			/* 0 means match anything */
 	uint32_t data;				/* data to match */
