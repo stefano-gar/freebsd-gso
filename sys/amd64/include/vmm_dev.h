@@ -124,7 +124,7 @@ struct vm_io_reg_handler {
 	uint32_t		data;		/* data to match */
 	enum vm_io_regh_type	type;		/* handler type */
 	void			*arg;		/* handler argument */
-};a specific value that mathces
+};
 
 struct vm_pptdev_msi {
 	int		vcpu;
