@@ -285,7 +285,8 @@ CTASSERT(sizeof(struct vtnet_mac_filter) <= PAGE_SIZE);
      VIRTIO_NET_F_MRG_RXBUF		| \
      VIRTIO_NET_F_MQ			| \
      VIRTIO_RING_F_EVENT_IDX		| \
-     VIRTIO_RING_F_INDIRECT_DESC)
+     VIRTIO_RING_F_INDIRECT_DESC	| \
+     VIRTIO_NET_F_PTNETMAP)
 
 /*
  * The VIRTIO_NET_F_HOST_TSO[46] features permit us to send the host

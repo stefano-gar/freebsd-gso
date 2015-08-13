@@ -267,6 +267,7 @@ static struct virtio_feature_desc vtnet_feature_desc[] = {
 	{ VIRTIO_NET_F_GUEST_ANNOUNCE,	"GuestAnnounce"	},
 	{ VIRTIO_NET_F_MQ,		"Multiqueue"	},
 	{ VIRTIO_NET_F_CTRL_MAC_ADDR,	"SetMacAddress"	},
+	{ VIRTIO_NET_F_PTNETMAP,	"PTNetmap"	},
 
 	{ 0, NULL }
 };
@@ -289,6 +290,8 @@ static device_method_t vtnet_methods[] = {
 
 #ifdef DEV_NETMAP
 #include <dev/netmap/if_vtnet_netmap.h>
+#else
+#define VTNET_PTNETMAP_ON(_na)	0
 #endif /* DEV_NETMAP */
 
 static driver_t vtnet_driver = {
@@ -1854,7 +1857,8 @@ again:
 	}
 
 	more = vtnet_rxq_eof(rxq);
-	if (more || vtnet_rxq_enable_intr(rxq) != 0) {
+	if (!VTNET_PTNETMAP_ON(NA(ifp)) &&
+			(more || vtnet_rxq_enable_intr(rxq) != 0)) {
 		if (!more)
 			vtnet_rxq_disable_intr(rxq);
 		/*
@@ -1891,7 +1895,8 @@ vtnet_rxq_tq_intr(void *xrxq, int pending)
 	}
 
 	more = vtnet_rxq_eof(rxq);
-	if (more || vtnet_rxq_enable_intr(rxq) != 0) {
+	if (!VTNET_PTNETMAP_ON(NA(ifp)) &&
+			(more || vtnet_rxq_enable_intr(rxq) != 0)) {
 		if (!more)
 			vtnet_rxq_disable_intr(rxq);
 		rxq->vtnrx_stats.vrxs_rescheduled++;
